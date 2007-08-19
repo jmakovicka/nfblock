@@ -701,7 +701,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 	case NF_IP_FORWARD:
 	    src = blocklist_find(ntohl(SRC_ADDR(payload)));
 	    dst = blocklist_find(ntohl(DST_ADDR(payload)));
-	    if (dst || src >= 0) {
+	    if (dst || src) {
 		int lasttime = 0;
 		if (likely(reject_mark)) {
 		    // we set the user-defined reject_mark and set NF_REPEAT verdict
