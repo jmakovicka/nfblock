@@ -763,7 +763,6 @@ nfqueue_loop ()
 	return -1;
     }
 
-/*
     if (nfq_unbind_pf(h, AF_INET) < 0) {
 	do_log(LOG_ERR, "Error during nfq_unbind_pf()");
 	return -1;
@@ -773,7 +772,6 @@ nfqueue_loop ()
 	do_log(LOG_ERR, "Error during nfq_bind_pf\n");
 	return -1;
     }
-*/
 
     do_log(LOG_INFO, "NFQUEUE: binding to queue %d", queue_num);
     qh = nfq_create_queue(h, queue_num, &nfqueue_cb, NULL);
