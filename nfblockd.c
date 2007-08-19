@@ -42,8 +42,6 @@
 #include <time.h>
 #include <zlib.h>
 
-#define VERSION "0.1"
-
 #define likely(x)       __builtin_expect((x),1)
 #define unlikely(x)     __builtin_expect((x),0)
 
@@ -82,7 +80,8 @@ time_t curtime = 0;
 #define IP_STRING_SIZE 16
 #define MAX_LABEL_LENGTH 200
 
-void do_log(int priority, const char *format, ...)
+static void
+do_log(int priority, const char *format, ...)
 {
     va_list ap;
 
