@@ -942,7 +942,7 @@ main(int argc, char *argv[])
 	}
     }
 
-    if (queue_num < 0 || queue_num > 6535 || argc <= optind) {
+    if (queue_num < 0 || queue_num > 65535 || argc <= optind) {
 	print_usage();
 	exit(1);
     }
