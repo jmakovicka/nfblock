@@ -49,7 +49,7 @@
 #define DST_ADDR(pkt) (((struct iphdr *)pkt)->daddr)
 
 #define CHUNK 1024
-#define MIN_INTERVAL 5
+#define MIN_INTERVAL 60
 
 typedef enum {
     CMD_NONE,
