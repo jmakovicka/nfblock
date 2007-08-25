@@ -1,5 +1,5 @@
 PKGNAME = nfblockd
-VERSION = 0.1
+VERSION = 0.2
 
 ifeq ($(INSTALLROOT),)
 INSTALLROOT = /usr/local
@@ -16,7 +16,8 @@ DISTDIR = $(PKGNAME)-$(VERSION)
 DISTFILES = \
 	Makefile nfblockd.c ChangeLog README \
 	debian/changelog debian/control debian/copyright \
-	debian/rules \
+	debian/cron.daily debian/default debian/init.d \
+	debian/postinst debian/postrm debian/rules \
 
 all: nfblockd
 
