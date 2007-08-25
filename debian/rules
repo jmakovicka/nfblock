@@ -54,6 +54,8 @@ binary-arch: build install
 	dh_testdir
 	dh_testroot
 	dh_installdocs
+	dh_installinit -- start 20 2 3 4 5 . start 39 S . stop 80 0 1 6 .
+	dh_installcron
 	dh_installchangelogs ChangeLog
 	dh_link
 	dh_strip

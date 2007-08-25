@@ -30,7 +30,7 @@ clean:
 	rm -f *.o *~ nfblockd
 
 install:
-	install -D -m 755 nfblockd $(INSTALLROOT)/bin/nfblockd
+	install -D -m 755 nfblockd $(INSTALLROOT)/sbin/nfblockd
 
 dist:
 	rm -rf $(DISTDIR)

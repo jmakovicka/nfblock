@@ -1,0 +1,18 @@
+#!/bin/sh -e
+
+if test "$1" = "configure"; then
+    ENABLED=0
+
+    test -f /etc/default/nfblockd && . /etc/default/nfblockd
+
+    if [ "$ENABLED" = "0" ]; then
+	exit 0
+    fi
+
+    mkdir -p /var/lib/nfblockd
+    wget -P/var/lib/nfblockd/ -N $BLOCKLIST_URL
+fi
+
+#DEBHELPER#
+
+exit 0

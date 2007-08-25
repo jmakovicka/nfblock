@@ -1,0 +1,4 @@
+# do we start nfblockd ?
+ENABLED=1
+# blocklist url
+BLOCKLIST_URL=http://www.bluetack.co.uk/config/nipfilter.dat.gz

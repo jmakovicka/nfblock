@@ -611,19 +611,19 @@ loadlist(char *filename)
 {
     blocklist_clear();
     if (loadlist_p2b(filename) >= 0) {
-	do_log(LOG_INFO, "PeerGuardian Binary: %d entries loaded", blocklist_count);
+	do_log(LOG_DEBUG, "PeerGuardian Binary: %d entries loaded", blocklist_count);
 	goto loaded;
     }
 
     blocklist_clear();
     if (loadlist_dat(filename) >= 0) {
-	do_log(LOG_INFO, "IPFilter: %d entries loaded", blocklist_count);
+	do_log(LOG_DEBUG, "IPFilter: %d entries loaded", blocklist_count);
 	goto loaded;
     }
 
     blocklist_clear();
     if (loadlist_p2p(filename) >= 0) {
-	do_log(LOG_INFO, "PeerGuardian Ascii: %d entries loaded", blocklist_count);
+	do_log(LOG_DEBUG, "PeerGuardian Ascii: %d entries loaded", blocklist_count);
 	goto loaded;
     }
 

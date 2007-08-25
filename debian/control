@@ -7,7 +7,7 @@ Standards-Version: 3.6.1.1
 
 Package: nfblockd
 Architecture: any
-Depends: ${shlibs:Depends}
+Depends: wget, ${shlibs:Depends}
 Description: Netfilter blocklist daemon
   Filters the incoming or outgoing packets based on block list files.
   Can use IPFilter or PeerGuardian block lists.

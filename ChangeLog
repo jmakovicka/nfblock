@@ -1,3 +1,11 @@
+2007-08-25  Jindrich Makovicka  <makovick@gmail.com>
+
+	* Release 0.2
+	
+	* nfblockd.c: Reduce startup verbosity
+
+	* More Debian related stuff - Pre/Postinst, cron, init.d
+	
 2007-08-12  Jindrich Makovicka  <makovick@gmail.com>
 
 	* Initial release 0.1

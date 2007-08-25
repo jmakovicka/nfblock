@@ -1,0 +1,11 @@
+#!/bin/sh
+
+ENABLED=0
+
+test -f /etc/default/nfblockd && . /etc/default/nfblockd
+
+if [ "$ENABLED" = "0" ]; then
+    exit 0
+fi
+
+wget -q -P/var/lib/nfblockd/ -N $BLOCKLIST_URL
