@@ -667,8 +667,6 @@ load_all_lists()
     int i, ret = 0;
     
     for (i = 0; blocklist_filenames[i]; i++) {
-	printf("%s\n", blocklist_filenames[i]);
-	
 	if (load_list(blocklist_filenames[i])) {
 	    do_log(LOG_ERR, "Error loading %s", blocklist_filenames[i]);
 	    ret = -1;
