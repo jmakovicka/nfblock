@@ -73,7 +73,7 @@ int opt_daemon = 0, daemonized = 0;
 int opt_verbose = 0;
 int queue_num = 0;
 uint32_t accept_mark = 0, reject_mark = 0;
-char *filename;
+char **blocklist_filenames;
 volatile command_t command = CMD_NONE;
 time_t curtime = 0;
 
@@ -130,16 +130,21 @@ blocklist_append(uint32_t ip_min, uint32_t ip_max, const char *name)
 }
 
 static void
-blocklist_clear()
+blocklist_clear(int start)
 {
     int i;
 
-    for (i = 0; i < blocklist_count; i++)
+    for (i = start; i < blocklist_count; i++)
 	free(blocklist[i].name);
-    free(blocklist);
-    blocklist = NULL;
-    blocklist_count = 0;
-    blocklist_size = 0;
+    if (start == 0) {
+	free(blocklist);
+	blocklist = NULL;
+	blocklist_count = 0;
+	blocklist_size = 0;
+    } else {
+	blocklist_size = blocklist_count = start;
+	blocklist = realloc(blocklist, sizeof(block_entry_t) * blocklist_size);
+    }
 }
 
 static int
@@ -202,7 +207,7 @@ blocklist_trim()
 	    }
 	    ip2str(buf1, blocklist[i].ip_min);
 	    ip2str(buf2, ip_max);
-	    do_log(LOG_DEBUG, "Merging ranges: %s into %s-%s (%s)", tmp, buf1, buf2, dst);
+	    do_log(LOG_DEBUG, "Merging ranges: %sinto %s-%s (%s)", tmp, buf1, buf2, dst);
 	    free(tmp);
 
 	    /* Extend the range and mark the unneeded entries */
@@ -628,32 +633,50 @@ err:
 }
 
 static int
-loadlist(char *filename)
+load_list(char *filename)
 {
-    blocklist_clear();
+    int prevcount;
+    
+    prevcount = blocklist_count;
     if (loadlist_p2b(filename) >= 0) {
-	do_log(LOG_DEBUG, "PeerGuardian Binary: %d entries loaded", blocklist_count);
-	goto loaded;
+	do_log(LOG_DEBUG, "PeerGuardian Binary: %d entries loaded", blocklist_count - prevcount);
+	return 0;
     }
+    blocklist_clear(prevcount);
 
-    blocklist_clear();
+    prevcount = blocklist_count;
     if (loadlist_dat(filename) >= 0) {
-	do_log(LOG_DEBUG, "IPFilter: %d entries loaded", blocklist_count);
-	goto loaded;
+	do_log(LOG_DEBUG, "IPFilter: %d entries loaded", blocklist_count - prevcount);
+	return 0;
     }
+    blocklist_clear(prevcount);
 
-    blocklist_clear();
+    prevcount = blocklist_count;
     if (loadlist_p2p(filename) >= 0) {
-	do_log(LOG_DEBUG, "PeerGuardian Ascii: %d entries loaded", blocklist_count);
-	goto loaded;
+	do_log(LOG_DEBUG, "PeerGuardian Ascii: %d entries loaded", blocklist_count - prevcount);
+	return 0;
     }
+    blocklist_clear(prevcount);
 
     return -1;
+}
 
-loaded:
+static int
+load_all_lists()
+{
+    int i, ret = 0;
+    
+    for (i = 0; blocklist_filenames[i]; i++) {
+	printf("%s\n", blocklist_filenames[i]);
+	
+	if (load_list(blocklist_filenames[i])) {
+	    do_log(LOG_ERR, "Error loading %s", blocklist_filenames[i]);
+	    ret = -1;
+	}
+    }
     blocklist_sort();
     blocklist_trim();
-    return 0;
+    return ret;
 }
 
 static int
@@ -833,7 +856,7 @@ nfqueue_loop ()
 		break;
 	    case CMD_RELOAD:
 		blocklist_stats();
-		if (loadlist(filename) < 0)
+		if (load_all_lists() < 0)
 		    do_log(LOG_ERR, "Cannot load the blocklist");
 		break;
 	    case CMD_QUIT:
@@ -926,7 +949,7 @@ static void
 print_usage()
 {
     fprintf(stderr, "nfblockd " VERSION " (c) 2007 Jindrich Makovicka\n");
-    fprintf(stderr, "Syntax: nfblockd -d [-a MARK] [-r MARK] [-q 0-65535] <blocklist>\n\n");
+    fprintf(stderr, "Syntax: nfblockd -d [-a MARK] [-r MARK] [-q 0-65535] BLOCKLIST...\n\n");
     fprintf(stderr, "        -d            Run as daemon\n");
     fprintf(stderr, "        -v            Verbose output\n");
     fprintf(stderr, "        -q 0-65535    NFQUEUE number, as specified in --queue-num with iptables\n");
@@ -938,9 +961,9 @@ print_usage()
 int
 main(int argc, char *argv[])
 {
-    int opt;
+    int opt, i;
 
-    while ((opt = getopt(argc, argv, "q:a:r:d")) != -1) {
+    while ((opt = getopt(argc, argv, "q:a:r:dv")) != -1) {
 	switch (opt) {
 	case 'd':
 	    opt_daemon = 1;
@@ -965,9 +988,12 @@ main(int argc, char *argv[])
 	exit(1);
     }
 
-    filename = argv[optind];
+    blocklist_filenames = (char**)malloc(sizeof(char*) * (argc - optind + 1));
+    for (i = 0; i < argc - optind; i++)
+	blocklist_filenames[i] = argv[optind + i];
+    blocklist_filenames[i] = 0;
 
-    if (loadlist(filename) < 0) {
+    if (load_all_lists() < 0) {
 	do_log(LOG_ERR, "Cannot load the blocklist");
 	return -1;
     }
@@ -986,6 +1012,7 @@ main(int argc, char *argv[])
     if (opt_daemon) {
 	closelog();
     }
-    blocklist_clear();
+    blocklist_clear(0);
+    free(blocklist_filenames);
     return 0;
 }
