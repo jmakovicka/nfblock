@@ -574,6 +574,8 @@ loadlist_p2b(char *filename)
 	labels = (char**)malloc(sizeof(char*) * nlabels);
 	if (!labels)
 	    goto err;
+	for (i = 0; i < nlabels; i++)
+	    labels[i] = NULL;
 	for (i = 0; i < nlabels; i++) {
 	    char buf[MAX_LABEL_LENGTH];
 	    n = read_cstr(buf, MAX_LABEL_LENGTH, f);
@@ -617,7 +619,8 @@ loadlist_p2b(char *filename)
 err:
     if (labels) {
 	for (i = 0; i < nlabels; i++)
-	    free(labels[i]);
+	    if (labels[i])
+		free(labels[i]);
 	free(labels);
     }
     fclose(f);
