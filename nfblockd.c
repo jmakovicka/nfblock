@@ -389,8 +389,13 @@ stream_getline(char *buf, int max, stream_t *stream)
 
 	avail = CHUNK - stream->strm.avail_out;
 	ptr = memchr(stream->out, '\n', avail);
+	// handle lines is longer than the maximum
 	if (!ptr && avail > max - 1)
 	    ptr = stream->out + max - 1;
+	// handle missing LF at the end of file
+	if (!ptr && avail && stream->eos)
+	    ptr = stream->out + avail - 1;
+	// now, ptr should point to the last character copied, if there is any
 	if (ptr) {
 	    int copied = ptr - stream->out + 1;
 	    if (copied >= max - 1)
