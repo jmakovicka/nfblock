@@ -1,3 +1,11 @@
+2007-08-30  Jindrich Makovicka  <makovick@gmail.com>
+
+	* Release 0.3
+
+	* Multiple blocklists support
+
+	* Blocklist loading fixes
+
 2007-08-25  Jindrich Makovicka  <makovick@gmail.com>
 
 	* Release 0.2
@@ -9,5 +17,4 @@
 2007-08-12  Jindrich Makovicka  <makovick@gmail.com>
 
 	* Initial release 0.1
-	
 

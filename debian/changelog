@@ -1,3 +1,10 @@
+nfblockd (0.3-1) unstable; urgency=low
+
+  * New upstream release
+  * Multiple blocklists support
+
+ -- Jindrich Makovicka <makovick@gmail.com>  Thu, 30 Aug 2007 08:15:11 +0200
+
 nfblockd (0.2-1) unstable; urgency=low
 
   * More debian stuff.
