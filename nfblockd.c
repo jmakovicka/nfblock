@@ -800,74 +800,76 @@ nfqueue_loop ()
 
     h = nfq_open();
     if (!h) {
-	do_log(LOG_ERR, "Error during nfq_open()");
-	return -1;
-    }
-
-    if (nfq_unbind_pf(h, AF_INET) < 0) {
-	do_log(LOG_ERR, "Error during nfq_unbind_pf()");
-	return -1;
+	do_log(LOG_ERR, "Error during nfq_open(): %s", strerror(errno));
+        return -1;
     }
 
     if (nfq_bind_pf(h, AF_INET) < 0) {
-	do_log(LOG_ERR, "Error during nfq_bind_pf\n");
-	return -1;
+        do_log(LOG_ERR, "Error during nfq_bind_pf(): %s", strerror(errno));
+        nfq_close(h);
+        return -1;
     }
 
     do_log(LOG_INFO, "NFQUEUE: binding to queue %d", queue_num);
     qh = nfq_create_queue(h, queue_num, &nfqueue_cb, NULL);
     if (!qh) {
-	do_log(LOG_ERR, "error during nfq_create_queue()");
-	return -1;
+        do_log(LOG_ERR, "error during nfq_create_queue(): %s", strerror(errno));
+        nfq_close(h);
+        return -1;
     }
 
     if (nfq_set_mode(qh, NFQNL_COPY_PACKET, 21) < 0) {
-	do_log(LOG_ERR, "can't set packet_copy mode");
-	return -1;
+        do_log(LOG_ERR, "can't set packet_copy mode: %s", strerror(errno));
+        nfq_destroy_queue(qh);
+        nfq_close(h);
+        return -1;
     }
 
     nh = nfq_nfnlh(h);
     fd = nfnl_fd(nh);
 
     for (;;) {
-	fds[0].fd = fd;
-	fds[0].events = POLLIN | POLLOUT | POLLERR;
-	fds[0].revents = 0;
-	rv = poll(fds, 1, 5000);
+        fds[0].fd = fd;
+        fds[0].events = POLLIN;
+        fds[0].revents = 0;
+        rv = poll(fds, 1, 5000);
 
-	curtime = time(NULL);
+        curtime = time(NULL);
 
-	if (rv < 0)
-	    goto out;
-	if (rv > 0) {
-	    rv = recv(fd, buf, sizeof(buf), 0);
-	    if (rv < 0)
-		goto out;
-	    if (rv >= 0)
-		nfq_handle_packet(h, buf, rv);
-	}
+        if (rv < 0)
+            goto out;
+        if (rv > 0) {
+            rv = recv(fd, buf, sizeof(buf), 0);
+            if (rv < 0)
+                goto out;
+            if (rv >= 0)
+                nfq_handle_packet(h, buf, rv);
+        }
 
-	if (unlikely (command != CMD_NONE)) {
-	    switch (command) {
-	    case CMD_DUMPSTATS:
-		blocklist_stats();
-		break;
-	    case CMD_RELOAD:
-		blocklist_stats();
-		if (load_all_lists() < 0)
-		    do_log(LOG_ERR, "Cannot load the blocklist");
-		break;
-	    case CMD_QUIT:
-		goto out;
-	    default:
-		break;
-	    }
-	    command = CMD_NONE;
-	}
+        if (unlikely (command != CMD_NONE)) {
+            switch (command) {
+            case CMD_DUMPSTATS:
+                blocklist_stats();
+                break;
+            case CMD_RELOAD:
+                blocklist_stats();
+                if (load_all_lists() < 0)
+                    do_log(LOG_ERR, "Cannot load the blocklist");
+                break;
+            case CMD_QUIT:
+                goto out;
+            default:
+                break;
+            }
+            command = CMD_NONE;
+        }
     }
 out:
     do_log(LOG_INFO, "NFQUEUE: unbinding from queue 0");
     nfq_destroy_queue(qh);
+    if (nfq_unbind_pf(h, AF_INET) < 0) {
+        do_log(LOG_ERR, "Error during nfq_unbind_pf(): %s", strerror(errno));
+    }
     nfq_close(h);
     return 0;
 }
