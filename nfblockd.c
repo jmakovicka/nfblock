@@ -456,6 +456,8 @@ loadlist_dat(char *filename)
     }
     stream_close(&s);
 
+    if (ok == 0) return -1;
+
     return 0;
 }
 
@@ -492,6 +494,9 @@ loadlist_p2p(char *filename)
         ok++;
     }
     stream_close(&s);
+
+    if (ok == 0) return -1;
+
     return 0;
 }
 
@@ -638,21 +643,21 @@ load_list(char *filename)
     int prevcount;
     
     prevcount = blocklist_count;
-    if (loadlist_p2b(filename) >= 0) {
+    if (loadlist_p2b(filename) == 0) {
         do_log(LOG_DEBUG, "PeerGuardian Binary: %d entries loaded", blocklist_count - prevcount);
         return 0;
     }
     blocklist_clear(prevcount);
 
     prevcount = blocklist_count;
-    if (loadlist_dat(filename) > 0) {
+    if (loadlist_dat(filename) == 0) {
         do_log(LOG_DEBUG, "IPFilter: %d entries loaded", blocklist_count - prevcount);
         return 0;
     }
     blocklist_clear(prevcount);
 
     prevcount = blocklist_count;
-    if (loadlist_p2p(filename) > 0) {
+    if (loadlist_p2p(filename) == 0) {
         do_log(LOG_DEBUG, "PeerGuardian Ascii: %d entries loaded", blocklist_count - prevcount);
         return 0;
     }

@@ -1,6 +1,6 @@
 2008-04-15  Jindrich Makovicka  <makovick@gmail.com>
 
-	* nfblockd.c (load_all_lists): Fix PeerGuardian Ascii autodetection
+	* nfblockd.c: Fix PeerGuardian Ascii autodetection
 	* Makefile: Bump version to 0.4
 
 2007-08-30  Jindrich Makovicka  <makovick@gmail.com>
