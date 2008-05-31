@@ -1,15 +1,25 @@
 PKGNAME = nfblockd
 VERSION = 0.5
 
+#PROFILE = yes
+
 ifeq ($(INSTALLROOT),)
 INSTALLROOT = /usr/local
 endif
 OPTFLAGS=-O3
 #OPTFLAGS=-O3 -march=pentium-m -mtune=pentium-m
 #OPTFLAGS=-ggdb3 -O0
-CFLAGS=-Wall $(OPTFLAGS) -fomit-frame-pointer -ffast-math -DVERSION=\"$(VERSION)\"
-LDFLAGS=-lnetfilter_queue -lnfnetlink -lz -s
+CFLAGS=-Wall $(OPTFLAGS) -ffast-math -DVERSION=\"$(VERSION)\"
+LDFLAGS=-lnetfilter_queue -lnfnetlink -lz
 CC=gcc
+
+ifneq ($(PROFILE),)
+CFLAGS+=-pg
+LDFLAGS+=-pg
+else
+CFLAGS+=-fomit-frame-pointer
+LDFLAGS+=-s
+endif
 
 DISTDIR = $(PKGNAME)-$(VERSION)
 

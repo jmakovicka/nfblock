@@ -32,6 +32,8 @@
 #include <syslog.h>
 #include <inttypes.h>
 #include <signal.h>
+#include <sys/time.h>
+#include <time.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
@@ -70,6 +72,7 @@ static block_entry_t *blocklist = NULL;
 static unsigned int blocklist_count = 0, blocklist_size = 0;
 
 int opt_daemon = 0, daemonized = 0;
+int benchmark = 0;
 int opt_verbose = 0;
 int queue_num = 0;
 uint32_t accept_mark = 0, reject_mark = 0;
@@ -993,6 +996,34 @@ daemonize() {
     daemonized = 1;
 }
 
+int64_t ustime()
+{
+    struct timeval tv;
+    gettimeofday(&tv, 0);
+    return tv.tv_sec * 1000000 + tv.tv_usec;
+}
+
+#if RAND_MAX < 65536
+#error RAND_MAX needs to be at least 2^16
+#endif
+#define ITER 10000000
+static void
+do_benchmark()
+{
+    int i;
+    int64_t start, end;
+    
+    start = ustime();
+    for (i = 0; i < ITER; i++) {
+	uint32_t ip;
+	ip = (uint32_t)random() ^ ((uint32_t)random() << 16);
+	blocklist_find(ip);
+    }
+    end = ustime();
+
+    fprintf(stderr, "%" PRIi64 " matches per second.\n", 1000000LL * ITER / (end - start));
+}
+
 static void
 print_usage()
 {
@@ -1001,6 +1032,7 @@ print_usage()
     fprintf(stderr, "        -d            Run as daemon\n");
     fprintf(stderr, "        -p NAME       Use a pidfile named NAME\n");
     fprintf(stderr, "        -v            Verbose output\n");
+    fprintf(stderr, "        -b            Benchmark IP matches per second\n");
     fprintf(stderr, "        -q 0-65535    NFQUEUE number, as specified in --queue-num with iptables\n");
     fprintf(stderr, "        -a MARK       32-bit mark to place on ACCEPTED packets\n");
     fprintf(stderr, "        -r MARK       32-bit mark to place on REJECTED packets\n");
@@ -1012,10 +1044,13 @@ main(int argc, char *argv[])
 {
     int opt, i;
 
-    while ((opt = getopt(argc, argv, "q:a:r:dp:v")) != -1) {
+    while ((opt = getopt(argc, argv, "q:a:r:dbp:v")) != -1) {
         switch (opt) {
         case 'd':
             opt_daemon = 1;
+            break;
+        case 'b':
+            benchmark = 1;
             break;
         case 'q':
             queue_num = atoi(optarg);
@@ -1050,6 +1085,11 @@ main(int argc, char *argv[])
         return -1;
     }
 
+    if (benchmark) {
+	do_benchmark();
+	goto out;
+    }
+
     if (opt_daemon) {
         daemonize();
         openlog("nfblockd", 0, LOG_DAEMON);
@@ -1066,14 +1106,19 @@ main(int argc, char *argv[])
     do_log(LOG_INFO, "Blocklist has %d entries", blocklist_count);
     nfqueue_loop();
     blocklist_stats();
+
     if (opt_daemon) {
         closelog();
     }
+
+out:
     blocklist_clear(0);
     free(blocklist_filenames);
 
-    fclose(pidfile);
-    unlink(pidfile_name);
+    if (pidfile) {
+	fclose(pidfile);
+	unlink(pidfile_name);
+    }
 
     return 0;
 }
