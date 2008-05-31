@@ -996,7 +996,8 @@ daemonize() {
     daemonized = 1;
 }
 
-int64_t ustime()
+static int64_t
+ustime()
 {
     struct timeval tv;
     gettimeofday(&tv, 0);
