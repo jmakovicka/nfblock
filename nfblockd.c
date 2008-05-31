@@ -73,9 +73,12 @@ int opt_daemon = 0, daemonized = 0;
 int opt_verbose = 0;
 int queue_num = 0;
 uint32_t accept_mark = 0, reject_mark = 0;
+const char *pidfile_name = "/var/run/nfblockd.pid";
 char **blocklist_filenames;
+
 volatile command_t command = CMD_NONE;
 time_t curtime = 0;
+FILE* pidfile = NULL;
 
 #define IP_STRING_SIZE 16
 #define MAX_LABEL_LENGTH 255
@@ -173,6 +176,17 @@ blocklist_sort()
     qsort(blocklist, blocklist_count, sizeof(block_entry_t), block_entry_compare);
 }
 
+static int
+find_name(int start, int end, const char *name)
+{
+    int i;
+    for (i = start; i <= end; i++) {
+	if (strcmp(blocklist[i].name, name) == 0)
+	    return i;
+    }
+    return -1;
+}
+
 static void
 blocklist_trim()
 {
@@ -201,10 +215,14 @@ blocklist_trim()
                 ip2str(buf2, blocklist[k].ip_max);
                 sprintf(tmp2, "%s-%s ", buf1, buf2);
                 strcat(tmp, tmp2);
-                strncat(dst, blocklist[k].name, MAX_LABEL_LENGTH - strlen(dst) - 1);
-                if (k < j - 1)
-                    strncat(dst, "; ", MAX_LABEL_LENGTH - strlen(dst) - 1);
+		/* Avoid duplicate names in merged entries */
+		if (find_name(i, k - 1, blocklist[k].name) < 0) {
+		    if (strlen(dst))
+			strncat(dst, "; ", MAX_LABEL_LENGTH - strlen(dst) - 1);
+		    strncat(dst, blocklist[k].name, MAX_LABEL_LENGTH - strlen(dst) - 1);
+		}
             }
+		
             ip2str(buf1, blocklist[i].ip_min);
             ip2str(buf2, ip_max);
             do_log(LOG_DEBUG, "Merging ranges: %sinto %s-%s (%s)", tmp, buf1, buf2, dst);
@@ -924,6 +942,31 @@ install_sighandler()
     return 0;
 }
 
+static FILE *
+create_pidfile(const char *name)
+{
+    FILE *f;
+	
+    f = fopen(name, "w");
+    if (f == NULL){
+	fprintf(stderr, "Unable to create PID file %s: %s\n", name, strerror(errno));
+	return NULL;
+    }
+
+    /* this works even if pidfile is stale after daemon is sigkilled */
+    if (lockf(fileno(f), F_TLOCK, 0) == -1){
+	fprintf(stderr, "Unable to set exclusive lock for pidfile %s: %s\n", name, strerror(errno));
+	return NULL;
+    }
+
+    fprintf(f, "%d\n", getpid());
+    fflush(f);
+
+    /* leave fd open as long as daemon is running */
+    /* this is useful for example so that inotify can catch a file closed event even if daemon is killed */
+    return f;
+}
+
 
 static void
 daemonize() {
@@ -953,9 +996,10 @@ daemonize() {
 static void
 print_usage()
 {
-    fprintf(stderr, "nfblockd " VERSION " (c) 2007 Jindrich Makovicka\n");
+    fprintf(stderr, "nfblockd " VERSION " (c) 2008 Jindrich Makovicka\n");
     fprintf(stderr, "Syntax: nfblockd -d [-a MARK] [-r MARK] [-q 0-65535] BLOCKLIST...\n\n");
     fprintf(stderr, "        -d            Run as daemon\n");
+    fprintf(stderr, "        -p NAME       Use a pidfile named NAME\n");
     fprintf(stderr, "        -v            Verbose output\n");
     fprintf(stderr, "        -q 0-65535    NFQUEUE number, as specified in --queue-num with iptables\n");
     fprintf(stderr, "        -a MARK       32-bit mark to place on ACCEPTED packets\n");
@@ -968,7 +1012,7 @@ main(int argc, char *argv[])
 {
     int opt, i;
 
-    while ((opt = getopt(argc, argv, "q:a:r:dv")) != -1) {
+    while ((opt = getopt(argc, argv, "q:a:r:dp:v")) != -1) {
         switch (opt) {
         case 'd':
             opt_daemon = 1;
@@ -981,6 +1025,9 @@ main(int argc, char *argv[])
             break;
         case 'a':
             accept_mark = htonl((uint32_t)atoi(optarg));
+            break;
+        case 'p':
+            pidfile_name = optarg;
             break;
         case 'v':
             opt_verbose++;
@@ -1007,8 +1054,13 @@ main(int argc, char *argv[])
         daemonize();
         openlog("nfblockd", 0, LOG_DAEMON);
     }
+
     if (install_sighandler() != 0)
         return -1;
+
+    pidfile = create_pidfile(pidfile_name);
+    if (!pidfile)
+	return -1;
 
     do_log(LOG_INFO, "Started");
     do_log(LOG_INFO, "Blocklist has %d entries", blocklist_count);
@@ -1019,5 +1071,9 @@ main(int argc, char *argv[])
     }
     blocklist_clear(0);
     free(blocklist_filenames);
+
+    fclose(pidfile);
+    unlink(pidfile_name);
+
     return 0;
 }

@@ -5,6 +5,7 @@
 DESC="netfilter blocking daemon"
 DAEMON=/usr/sbin/nfblockd
 BLOCKLIST_DIR=/var/lib/nfblockd
+PIDFILE=/var/run/nfblockd.pid
 ENABLED=0
 
 test -f /usr/sbin/nfblockd || exit 0
@@ -24,20 +25,20 @@ case "$1" in
 	echo -n "Starting $DESC:"
 	echo -n " nfblockd"
 	NFBLOCKD_ARGS="-d $BLOCKLIST_FILE"
-	start-stop-daemon --start --quiet --exec $DAEMON -- $NFBLOCKD_ARGS \
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- $NFBLOCKD_ARGS \
 	    < /dev/null
 	echo "."
 	;;
     stop)
 	echo -n "Stopping $DESC:"
 	echo -n " nfblockd"
-	start-stop-daemon --stop --quiet --exec $DAEMON
+	start-stop-daemon --stop --quiet --pidfile $PIDFILE --exec $DAEMON
 	echo "."
 	;;
     reload|force-reload)
 	echo -n "Reloading $DESC:"
 	echo -n " nfblockd"
-	start-stop-daemon --stop --quiet --signal HUP --exec $DAEMON
+	start-stop-daemon --stop --quiet --pidfile $PIDFILE --signal HUP --exec $DAEMON
 	;;
     restart)
 	$0 stop

@@ -1,3 +1,10 @@
+nfblockd (0.4-1) unstable; urgency=low
+
+  * New upstream release
+  * List format autodetection fix
+
+ -- Jindrich Makovicka <makovick@gmail.com>  Sat, 31 May 2008 12:15:09 +0200
+
 nfblockd (0.3-1) unstable; urgency=low
 
   * New upstream release
