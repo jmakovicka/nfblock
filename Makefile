@@ -1,5 +1,5 @@
 PKGNAME = nfblockd
-VERSION = 0.4
+VERSION = 0.5
 
 ifeq ($(INSTALLROOT),)
 INSTALLROOT = /usr/local
