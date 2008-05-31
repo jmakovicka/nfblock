@@ -1,7 +1,8 @@
-2008-05-31  Jindrich Makovicka  <henry@holly>
+2008-05-31  Jindrich Makovicka  <makovick@gmail.com>
 
 	* nfblockd.c: Pidfile support
-	* Ignore duplicate range names on merging
+	Ignore duplicate range names on merging
+	Benchmarking
 
 2008-04-15  Jindrich Makovicka  <makovick@gmail.com>
 
