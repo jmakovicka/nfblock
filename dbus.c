@@ -1,5 +1,4 @@
 /* 
-
    D-Bus messaging interface
    
    (c) 2008 João Valverde
@@ -126,6 +125,7 @@ open_dbus()
     
 out_err:
     dlclose(dbus_lh);
+    dbus_lh = 0;
     return -1;
 }
 
@@ -137,14 +137,14 @@ nfblockd_dbus_init()
     
     if (open_dbus() < 0) {
         nfblockd_do_log(LOG_ERR, "Cannot load D-Bus library");
-        return -1;
+	goto out_err;
     }
         
     dbus_error_init (&dberr);
     dbconn = dbus_bus_get (DBUS_BUS_SYSTEM, &dberr); 
     if (dbus_error_is_set (&dberr)) {
         nfblockd_do_log(LOG_ERR, "Error connecting to dbus-daemon: %s", dberr.message);
-        return -1;
+	goto out_err;
     }
     nfblockd_do_log(LOG_INFO, "Connected to system bus.");
         
@@ -153,26 +153,35 @@ nfblockd_dbus_init()
     req = dbus_bus_request_name (dbconn, DBUS_PUBLIC_NAME, DBUS_NAME_FLAG_DO_NOT_QUEUE, &dberr);
     if (dbus_error_is_set (&dberr)) {
         nfblockd_do_log(LOG_ERR, "Error requesting name: %s.", dberr.message);
-        return -1;
-                
+	goto out_err;
     }
     if (req == DBUS_REQUEST_NAME_REPLY_EXISTS) {
         /* FIXME: replace the current name owner instead of giving up?
          * Need to request name with DBUS_NAME_FLAG_ALLOW_REPLACEMENT in that case... */
         nfblockd_do_log(LOG_WARNING, "nfblockd is already running. Exiting.");
-        return -1;
+	goto out_err;
     }
 
     return 0;
+
+out_err:
+    if (dbus_lh)
+	dlclose(dbus_lh);
+    dbus_lh = 0;
+    return -1;
 }
 
 int
 nfblockd_dbus_done()
 {
-    if (dbus_lh)
-        return dlclose(dbus_lh);
+    int ret = 0;
 
-    return 0;
+    if (dbus_lh) {
+        ret = dlclose(dbus_lh);
+	dbus_lh = 0;
+    }
+
+    return ret;
 }
 
 int
