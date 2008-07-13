@@ -1,6 +1,6 @@
-/* 
+/*
    NFblockD - Netfilter blocklist daemon
-   
+
    (c) 2007 Jindrich Makovicka (makovick@gmail.com)
 
    Portions (c) 2004 Morpheus (ebutera@users.berlios.de)
@@ -11,7 +11,7 @@
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
-   
+
    NFblockD is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -20,7 +20,7 @@
    You should have received a copy of the GNU General Public License
    along with GNU Emacs; see the file COPYING.  If not, write to
    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA. 
+   Boston, MA 02110-1301, USA.
 */
 
 #include <stdio.h>
@@ -246,7 +246,7 @@ blocklist_trim()
                     strncat(dst, blocklist[k].name, MAX_LABEL_LENGTH - strlen(dst) - 1);
                 }
             }
-                
+
             ip2str(buf1, blocklist[i].ip_min);
             ip2str(buf2, ip_max);
             nfblockd_do_log(LOG_DEBUG, "Merging ranges: %sinto %s-%s (%s)", tmp, buf1, buf2, dst);
@@ -431,8 +431,8 @@ stream_getline(char *buf, int max, stream_t *stream)
                 }
             } while (stream->strm.avail_out);
         }
-        
-    out:        
+
+    out:
 
         avail = CHUNK - stream->strm.avail_out;
         ptr = memchr(stream->out, '\n', avail);
@@ -683,7 +683,7 @@ static int
 load_list(char *filename)
 {
     int prevcount;
-    
+
     prevcount = blocklist_count;
     if (loadlist_p2b(filename) == 0) {
         nfblockd_do_log(LOG_DEBUG, "PeerGuardian Binary: %d entries loaded", blocklist_count - prevcount);
@@ -712,7 +712,7 @@ static int
 load_all_lists()
 {
     int i, ret = 0;
-    
+
     for (i = 0; blocklist_filenames[i]; i++) {
         if (load_list(blocklist_filenames[i])) {
             nfblockd_do_log(LOG_ERR, "Error loading %s", blocklist_filenames[i]);
@@ -753,9 +753,9 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                     if (use_dbus) {
                         nfblockd_dbus_send_signal_nfq(LOG_NF_IN, DBUS_TYPE_UINT32, &curtime, /* this is unsigned because we don't log events before the 'epoch' */
                                                       DBUS_TYPE_BYTE, NFBP_ACTION_DROP__BY_REF,
-                                                      DBUS_TYPE_UINT32, &ip_src, 
-                                                      DBUS_TYPE_STRING, &(src->name), 
-                                                      DBUS_TYPE_UINT32, &(src->hits),  
+                                                      DBUS_TYPE_UINT32, &ip_src,
+                                                      DBUS_TYPE_STRING, &(src->name),
+                                                      DBUS_TYPE_UINT32, &(src->hits),
                                                       DBUS_TYPE_INVALID);
                     }
                     if (use_syslog) {
@@ -790,7 +790,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                     ip2str(buf1, ntohl(DST_ADDR(payload)));
                     if (use_dbus) {
                         nfblockd_dbus_send_signal_nfq(LOG_NF_OUT, DBUS_TYPE_UINT32, &curtime,
-                                                      DBUS_TYPE_BYTE, reject_mark ? NFBP_ACTION_MARK__BY_REF : NFBP_ACTION_DROP__BY_REF, 
+                                                      DBUS_TYPE_BYTE, reject_mark ? NFBP_ACTION_MARK__BY_REF : NFBP_ACTION_DROP__BY_REF,
                                                       DBUS_TYPE_UINT32, &ip_dst,
                                                       DBUS_TYPE_STRING, &(dst->name),
                                                       DBUS_TYPE_UINT32, &(dst->hits),
@@ -830,7 +830,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                     lasttime = src->lasttime;
                     src->lasttime = curtime;
                 }
-                if (dst) { 
+                if (dst) {
                     dst->hits++;
                     if (dst->lasttime > lasttime)
                         lasttime = dst->lasttime;
@@ -846,7 +846,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                                                       DBUS_TYPE_UINT32, &ip_dst,
                                                       DBUS_TYPE_STRING, dst ? &(dst->name) : NAME_EMPTY,
                                                       DBUS_TYPE_UINT32, dst ? &(dst->hits) : HITS_EMPTY,
-                                                      DBUS_TYPE_INVALID); 
+                                                      DBUS_TYPE_INVALID);
                     }
                     if (use_syslog) {
                         ip2str(buf1, ntohl(SRC_ADDR(payload)));
@@ -1011,7 +1011,7 @@ static FILE *
 create_pidfile(const char *name)
 {
     FILE *f;
-        
+
     f = fopen(name, "w");
     if (f == NULL){
         fprintf(stderr, "Unable to create PID file %s: %s\n", name, strerror(errno));
@@ -1075,7 +1075,7 @@ do_benchmark()
 {
     int i;
     int64_t start, end;
-    
+
     start = ustime();
     for (i = 0; i < ITER; i++) {
         uint32_t ip;
@@ -1183,9 +1183,11 @@ main(int argc, char *argv[])
         openlog("nfblockd", 0, LOG_DAEMON);
     }
 
-    if (nfblockd_dbus_init() < 0) {
-        nfblockd_do_log(LOG_INFO, "Cannot initialize D-Bus");
-        use_dbus = 0;
+    if (use_dbus) {
+	if (nfblockd_dbus_init() < 0) {
+	    nfblockd_do_log(LOG_INFO, "Cannot initialize D-Bus");
+	    use_dbus = 0;
+	}
     }
 
     if (install_sighandler() != 0)
@@ -1205,6 +1207,9 @@ main(int argc, char *argv[])
     }
 
 out:
+    if (use_dbus)
+	nfblockd_dbus_done();
+
     blocklist_clear(0);
     free(blocklist_filenames);
 

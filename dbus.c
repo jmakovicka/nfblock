@@ -1,6 +1,6 @@
-/* 
+/*
    D-Bus messaging interface
-   
+
    (c) 2008 João Valverde
 
    (c) 2008 Jindrich Makovicka (makovick@gmail.com)
@@ -11,7 +11,7 @@
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
-   
+
    NFblockD is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -20,7 +20,7 @@
    You should have received a copy of the GNU General Public License
    along with GNU Emacs; see the file COPYING.  If not, write to
    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA. 
+   Boston, MA 02110-1301, USA.
 */
 
 #ifdef HAVE_DBUS
@@ -103,14 +103,14 @@ static int
 open_dbus()
 {
     char *err;
-    
+
     dbus_lh = dlopen("libdbus-1.so", RTLD_NOW);
     if (!dbus_lh) {
         nfblockd_do_log(LOG_ERR, "dlopen() failed");
         return -1;
     }
     dlerror(); // clear the error flag
-    
+
     do_dlsym(dbus_error_init);
     do_dlsym(dbus_bus_get);
     do_dlsym(dbus_error_is_set);
@@ -122,7 +122,7 @@ open_dbus()
     do_dlsym(dbus_connection_send);
 
     return 0;
-    
+
 out_err:
     dlclose(dbus_lh);
     dbus_lh = 0;
@@ -134,20 +134,20 @@ nfblockd_dbus_init()
 {
     DBusError dberr;
     int req;
-    
+
     if (open_dbus() < 0) {
         nfblockd_do_log(LOG_ERR, "Cannot load D-Bus library");
 	goto out_err;
     }
-        
+
     dbus_error_init (&dberr);
-    dbconn = dbus_bus_get (DBUS_BUS_SYSTEM, &dberr); 
+    dbconn = dbus_bus_get (DBUS_BUS_SYSTEM, &dberr);
     if (dbus_error_is_set (&dberr)) {
         nfblockd_do_log(LOG_ERR, "Error connecting to dbus-daemon: %s", dberr.message);
 	goto out_err;
     }
     nfblockd_do_log(LOG_INFO, "Connected to system bus.");
-        
+
     /* need d-bus policy priviledges for this to work */
     dbus_error_init (&dberr);
     req = dbus_bus_request_name (dbconn, DBUS_PUBLIC_NAME, DBUS_NAME_FLAG_DO_NOT_QUEUE, &dberr);
@@ -197,33 +197,33 @@ nfblockd_dbus_send_signal_nfq(int sigtype, int first_arg_type, ...)
     /* create dbus signal */
     switch (sigtype) {
     case LOG_NF_IN:
-        dbmsg = dbus_message_new_signal ("/org/netfilter/nfblockd", 
+        dbmsg = dbus_message_new_signal ("/org/netfilter/nfblockd",
                                          "org.netfilter.nfblockd",
                                          "blocked_in");
         break;
     case LOG_NF_OUT:
-        dbmsg = dbus_message_new_signal ("/org/netfilter/nfblockd", 
+        dbmsg = dbus_message_new_signal ("/org/netfilter/nfblockd",
                                          "org.netfilter.nfblockd",
                                          "blocked_out");
         break;
     case LOG_NF_FWD:
-        dbmsg = dbus_message_new_signal ("/org/netfilter/nfblockd", 
+        dbmsg = dbus_message_new_signal ("/org/netfilter/nfblockd",
                                          "org.netfilter.nfblockd",
-                                         "blocked_fwd");        
+                                         "blocked_fwd");
         break;
     }
     if (!dbmsg) {
         nfblockd_do_log(LOG_CRIT, "Cannot create D-Bus message (out of memory?).");
         goto out;
     }
-        
+
     va_start(ap, first_arg_type);
     if (!dbus_message_append_args_valist(dbmsg, first_arg_type, ap)) {
         nfblockd_do_log(LOG_CRIT, "Cannot append D-Bus message arguments (out of memory?).");
         goto out;
     }
     va_end(ap);
-        
+
     if (dbus_connection_get_is_connected(dbconn)) {
         dbus_connection_send (dbconn, dbmsg, NULL); /* this needs flushing! */
     }
