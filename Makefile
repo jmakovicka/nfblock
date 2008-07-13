@@ -1,17 +1,26 @@
 PKGNAME = nfblockd
-VERSION = 0.5
+VERSION = 0.6
 
 #PROFILE = yes
+
+DBUS=yes
 
 ifeq ($(INSTALLROOT),)
 INSTALLROOT = /usr/local
 endif
-OPTFLAGS=-O3
-#OPTFLAGS=-O3 -march=pentium-m -mtune=pentium-m
-#OPTFLAGS=-ggdb3 -O0
+ifeq ($(DBUSROOT),)
+DBUSROOT = /
+endif
+
+OPTFLAGS=-Os
 CFLAGS=-Wall $(OPTFLAGS) -ffast-math -DVERSION=\"$(VERSION)\"
 LDFLAGS=-lnetfilter_queue -lnfnetlink -lz
 CC=gcc
+
+ifeq ($(DBUS),yes)
+CFLAGS+=-DHAVE_DBUS
+LDFLAGS+=-ldl
+endif
 
 ifneq ($(PROFILE),)
 CFLAGS+=-pg
@@ -24,7 +33,8 @@ endif
 DISTDIR = $(PKGNAME)-$(VERSION)
 
 DISTFILES = \
-	Makefile nfblockd.c ChangeLog README \
+	Makefile nfblockd.c nfblockd.h dbus.c dbus.h \
+	dbus-nfblockd.conf ChangeLog README \
 	debian/changelog debian/control debian/copyright \
 	debian/cron.daily debian/default debian/init.d \
 	debian/postinst debian/postrm debian/rules \
@@ -34,14 +44,15 @@ all: nfblockd
 .c.o:
 	$(CC) $(CFLAGS) -c $<
 
-nfblockd: nfblockd.o
-	gcc -o nfblockd $(LDFLAGS) $<
+nfblockd: nfblockd.o dbus.o
+	gcc -o nfblockd $(LDFLAGS) $^
 
 clean:
 	rm -f *.o *~ nfblockd
 
 install:
 	install -D -m 755 nfblockd $(INSTALLROOT)/sbin/nfblockd
+	install -D -m 644 dbus-nfblockd.conf $(DBUSROOT)/etc/dbus-1/system.d/nfblockd.conf
 
 dist:
 	rm -rf $(DISTDIR)

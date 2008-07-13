@@ -28,6 +28,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <errno.h>
 #include <syslog.h>
 #include <inttypes.h>
@@ -43,6 +44,8 @@
 #include <poll.h>
 #include <time.h>
 #include <zlib.h>
+
+#include "dbus.h"
 
 #define likely(x)       __builtin_expect((x),1)
 #define unlikely(x)     __builtin_expect((x),0)
@@ -75,6 +78,8 @@ int opt_daemon = 0, daemonized = 0;
 int benchmark = 0;
 int opt_verbose = 0;
 int queue_num = 0;
+int use_dbus = 1;
+int use_syslog = 1;
 uint32_t accept_mark = 0, reject_mark = 0;
 const char *pidfile_name = "/var/run/nfblockd.pid";
 char **blocklist_filenames;
@@ -86,8 +91,24 @@ FILE* pidfile = NULL;
 #define IP_STRING_SIZE 16
 #define MAX_LABEL_LENGTH 255
 
-static void
-do_log(int priority, const char *format, ...)
+static int __null_int = 0;
+static char *__null_str = "";
+
+/* nfblockd dbus protocol */
+#define NFBP_ACTION_MARK 'm'
+#define NDBP_ACTION_DROP 'd'
+
+#define HITS_EMPTY (&__null_int)
+#define NAME_EMPTY (&__null_str)
+
+static const char __action_mark = NFBP_ACTION_MARK;
+static const char __action_drop = NDBP_ACTION_DROP;
+
+#define NFBP_ACTION_MARK__BY_REF (&__action_mark)
+#define NFBP_ACTION_DROP__BY_REF (&__action_drop)
+
+void
+nfblockd_do_log(int priority, const char *format, ...)
 {
     va_list ap;
 
@@ -184,8 +205,8 @@ find_name(int start, int end, const char *name)
 {
     int i;
     for (i = start; i <= end; i++) {
-	if (strcmp(blocklist[i].name, name) == 0)
-	    return i;
+        if (strcmp(blocklist[i].name, name) == 0)
+            return i;
     }
     return -1;
 }
@@ -218,17 +239,17 @@ blocklist_trim()
                 ip2str(buf2, blocklist[k].ip_max);
                 sprintf(tmp2, "%s-%s ", buf1, buf2);
                 strcat(tmp, tmp2);
-		/* Avoid duplicate names in merged entries */
-		if (find_name(i, k - 1, blocklist[k].name) < 0) {
-		    if (strlen(dst))
-			strncat(dst, "; ", MAX_LABEL_LENGTH - strlen(dst) - 1);
-		    strncat(dst, blocklist[k].name, MAX_LABEL_LENGTH - strlen(dst) - 1);
-		}
+                /* Avoid duplicate names in merged entries */
+                if (find_name(i, k - 1, blocklist[k].name) < 0) {
+                    if (strlen(dst))
+                        strncat(dst, "; ", MAX_LABEL_LENGTH - strlen(dst) - 1);
+                    strncat(dst, blocklist[k].name, MAX_LABEL_LENGTH - strlen(dst) - 1);
+                }
             }
-		
+                
             ip2str(buf1, blocklist[i].ip_min);
             ip2str(buf2, ip_max);
-            do_log(LOG_DEBUG, "Merging ranges: %sinto %s-%s (%s)", tmp, buf1, buf2, dst);
+            nfblockd_do_log(LOG_DEBUG, "Merging ranges: %sinto %s-%s (%s)", tmp, buf1, buf2, dst);
             free(tmp);
 
             /* Extend the range and mark the unneeded entries */
@@ -253,7 +274,7 @@ blocklist_trim()
             }
         }
         blocklist_count -= merged;
-        do_log(LOG_DEBUG, "%d entries merged", merged);
+        nfblockd_do_log(LOG_DEBUG, "%d entries merged", merged);
     }
 
 
@@ -265,18 +286,18 @@ blocklist_stats()
 {
     int i, total = 0;
 
-    do_log(LOG_INFO, "Blocker hit statistic:");
+    nfblockd_do_log(LOG_INFO, "Blocker hit statistic:");
     for (i = 0; i < blocklist_count; i++) {
         if (blocklist[i].hits > 0) {
             char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
             ip2str(buf1, blocklist[i].ip_min);
             ip2str(buf2, blocklist[i].ip_max);
-            do_log(LOG_INFO, "%s - %s-%s: %d", blocklist[i].name,
+            nfblockd_do_log(LOG_INFO, "%s - %s-%s: %d", blocklist[i].name,
                    buf1, buf2, blocklist[i].hits);
             total += blocklist[i].hits;
         }
     }
-    do_log(LOG_INFO, "%d hits total", total);
+    nfblockd_do_log(LOG_INFO, "%d hits total", total);
 }
 
 static block_entry_t *
@@ -449,7 +470,7 @@ loadlist_dat(char *filename)
     int total, ok;
 
     if (stream_open(&s, filename) < 0) {
-        do_log(LOG_INFO, "Error opening %s.", filename);
+        nfblockd_do_log(LOG_INFO, "Error opening %s.", filename);
         return -1;
     }
 
@@ -491,7 +512,7 @@ loadlist_p2p(char *filename)
     int total, ok;
 
     if (stream_open(&s, filename) < 0) {
-        do_log(LOG_INFO, "Error opening %s.", filename);
+        nfblockd_do_log(LOG_INFO, "Error opening %s.", filename);
         return -1;
     }
 
@@ -552,7 +573,7 @@ loadlist_p2b(char *filename)
 
     f = fopen(filename, "r");
     if (!f) {
-        do_log(LOG_INFO, "Error opening %s.", filename);
+        nfblockd_do_log(LOG_INFO, "Error opening %s.", filename);
         return -1;
     }
 
@@ -581,17 +602,17 @@ loadlist_p2b(char *filename)
             uint32_t ip1, ip2;
             n = read_cstr(buf, MAX_LABEL_LENGTH, f);
             if (n < 0 || n > MAX_LABEL_LENGTH) {
-                do_log(LOG_ERR, "P2B: Error reading label");
+                nfblockd_do_log(LOG_ERR, "P2B: Error reading label");
                 break;
             }
             n = fread(&ip1, 1, 4, f);
             if (n != 4) {
-                do_log(LOG_ERR, "P2B: Error reading range start");
+                nfblockd_do_log(LOG_ERR, "P2B: Error reading range start");
                 break;
             }
             n = fread(&ip2, 1, 4, f);
             if (n != 4) {
-                do_log(LOG_ERR, "P2B: Error reading range end");
+                nfblockd_do_log(LOG_ERR, "P2B: Error reading range end");
                 break;
             }
             blocklist_append(ntohl(ip1), ntohl(ip2), buf);
@@ -611,7 +632,7 @@ loadlist_p2b(char *filename)
             char buf[MAX_LABEL_LENGTH];
             n = read_cstr(buf, MAX_LABEL_LENGTH, f);
             if (n < 0 || n > MAX_LABEL_LENGTH) {
-                do_log(LOG_ERR, "P2B3: Error reading label");
+                nfblockd_do_log(LOG_ERR, "P2B3: Error reading label");
                 goto err;
             }
             labels[i] = strdup(buf);
@@ -624,24 +645,24 @@ loadlist_p2b(char *filename)
         for (i = 0; i < cnt; i++) {
             n = fread(&idx, 1, 4, f);
             if (n != 4 || ntohl(idx) > nlabels) {
-                do_log(LOG_ERR, "P2B3: Error reading label index");
+                nfblockd_do_log(LOG_ERR, "P2B3: Error reading label index");
                 goto err;
             }
             n = fread(&ip1, 1, 4, f);
             if (n != 4) {
-                do_log(LOG_ERR, "P2B3: Error reading range start");
+                nfblockd_do_log(LOG_ERR, "P2B3: Error reading range start");
                 goto err;
             }
             n = fread(&ip2, 1, 4, f);
             if (n != 4) {
-                do_log(LOG_ERR, "P2B3: Error reading range end");
+                nfblockd_do_log(LOG_ERR, "P2B3: Error reading range end");
                 goto err;
             }
             blocklist_append(ntohl(ip1), ntohl(ip2), labels[ntohl(idx)]);
         }
         break;
     default:
-        do_log(LOG_INFO, "Unknown P2B version: %d", version);
+        nfblockd_do_log(LOG_INFO, "Unknown P2B version: %d", version);
         goto err;
     }
 
@@ -665,21 +686,21 @@ load_list(char *filename)
     
     prevcount = blocklist_count;
     if (loadlist_p2b(filename) == 0) {
-        do_log(LOG_DEBUG, "PeerGuardian Binary: %d entries loaded", blocklist_count - prevcount);
+        nfblockd_do_log(LOG_DEBUG, "PeerGuardian Binary: %d entries loaded", blocklist_count - prevcount);
         return 0;
     }
     blocklist_clear(prevcount);
 
     prevcount = blocklist_count;
     if (loadlist_dat(filename) == 0) {
-        do_log(LOG_DEBUG, "IPFilter: %d entries loaded", blocklist_count - prevcount);
+        nfblockd_do_log(LOG_DEBUG, "IPFilter: %d entries loaded", blocklist_count - prevcount);
         return 0;
     }
     blocklist_clear(prevcount);
 
     prevcount = blocklist_count;
     if (loadlist_p2p(filename) == 0) {
-        do_log(LOG_DEBUG, "PeerGuardian Ascii: %d entries loaded", blocklist_count - prevcount);
+        nfblockd_do_log(LOG_DEBUG, "PeerGuardian Ascii: %d entries loaded", blocklist_count - prevcount);
         return 0;
     }
     blocklist_clear(prevcount);
@@ -694,7 +715,7 @@ load_all_lists()
     
     for (i = 0; blocklist_filenames[i]; i++) {
         if (load_list(blocklist_filenames[i])) {
-            do_log(LOG_ERR, "Error loading %s", blocklist_filenames[i]);
+            nfblockd_do_log(LOG_ERR, "Error loading %s", blocklist_filenames[i]);
             ret = -1;
         }
     }
@@ -711,6 +732,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     struct nfqnl_msg_packet_hdr *ph;
     char *payload;
     block_entry_t *src, *dst;
+    uint32_t ip_src, ip_dst;
     char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
 
     ph = nfq_get_msg_packet_hdr(nfa);
@@ -720,16 +742,28 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 
         switch (ph->hook) {
         case NF_IP_LOCAL_IN:
-            src = blocklist_find(ntohl(SRC_ADDR(payload)));
+            ip_src = ntohl(SRC_ADDR(payload));
+            src = blocklist_find(ip_src);
             if (src) {
                 // we drop the packet instead of rejecting
                 // we don't want the other host to know we are alive
                 status = nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
-                ip2str(buf1, ntohl(SRC_ADDR(payload)));
                 src->hits++;
-                if (src->lasttime < curtime - MIN_INTERVAL)
-                    do_log(LOG_NOTICE, "Blocked IN: %s, hits: %d, SRC: %s",
-                           src->name, src->hits, buf1);
+                if (src->lasttime < curtime - MIN_INTERVAL) {
+                    if (use_dbus) {
+                        nfblockd_dbus_send_signal_nfq(LOG_NF_IN, DBUS_TYPE_UINT32, &curtime, /* this is unsigned because we don't log events before the 'epoch' */
+                                                      DBUS_TYPE_BYTE, NFBP_ACTION_DROP__BY_REF,
+                                                      DBUS_TYPE_UINT32, &ip_src, 
+                                                      DBUS_TYPE_STRING, &(src->name), 
+                                                      DBUS_TYPE_UINT32, &(src->hits),  
+                                                      DBUS_TYPE_INVALID);
+                    }
+                    if (use_syslog) {
+                        ip2str(buf1, ntohl(SRC_ADDR(payload)));
+                        nfblockd_do_log(LOG_NOTICE, "Blocked IN: %s, hits: %d, SRC: %s",
+                                        src->name, src->hits, buf1);
+                    }
+                }
                 src->lasttime = curtime;
             } else if (unlikely(accept_mark)) {
                 // we set the user-defined accept_mark and set NF_REPEAT verdict
@@ -741,7 +775,8 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
             }
             break;
         case NF_IP_LOCAL_OUT:
-            dst = blocklist_find(ntohl(DST_ADDR(payload)));
+            ip_dst = ntohl(DST_ADDR(payload));
+            dst = blocklist_find(ip_dst);
             if (dst) {
                 if (likely(reject_mark)) {
                     // we set the user-defined reject_mark and set NF_REPEAT verdict
@@ -750,11 +785,22 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 } else {
                     status = nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
                 }
-                ip2str(buf1, ntohl(DST_ADDR(payload)));
                 dst->hits++;
-                if (dst->lasttime < curtime - MIN_INTERVAL)
-                    do_log(LOG_NOTICE, "Blocked OUT: %s, hits: %d, DST: %s",
-                           dst->name, dst->hits, buf1);
+                if (dst->lasttime < curtime - MIN_INTERVAL) {
+                    ip2str(buf1, ntohl(DST_ADDR(payload)));
+                    if (use_dbus) {
+                        nfblockd_dbus_send_signal_nfq(LOG_NF_OUT, DBUS_TYPE_UINT32, &curtime,
+                                                      DBUS_TYPE_BYTE, reject_mark ? NFBP_ACTION_MARK__BY_REF : NFBP_ACTION_DROP__BY_REF, 
+                                                      DBUS_TYPE_UINT32, &ip_dst,
+                                                      DBUS_TYPE_STRING, &(dst->name),
+                                                      DBUS_TYPE_UINT32, &(dst->hits),
+                                                      DBUS_TYPE_INVALID);
+                    }
+                    if (use_syslog) {
+                        nfblockd_do_log(LOG_NOTICE, "Blocked OUT: %s, hits: %d, DST: %s",
+                                        dst->name, dst->hits, buf1);
+                    }
+                }
                 dst->lasttime = curtime;
             } else if (unlikely(accept_mark)) {
                 // we set the user-defined accept_mark and set NF_REPEAT verdict
@@ -766,8 +812,10 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
             }
             break;
         case NF_IP_FORWARD:
-            src = blocklist_find(ntohl(SRC_ADDR(payload)));
-            dst = blocklist_find(ntohl(DST_ADDR(payload)));
+            ip_src = ntohl(SRC_ADDR(payload));
+            ip_dst = ntohl(DST_ADDR(payload));
+            src = blocklist_find(ip_src);
+            dst = blocklist_find(ip_dst);
             if (dst || src) {
                 int lasttime = 0;
                 if (likely(reject_mark)) {
@@ -777,8 +825,6 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 } else {
                     status = nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
                 }
-                ip2str(buf1, ntohl(SRC_ADDR(payload)));
-                ip2str(buf2, ntohl(DST_ADDR(payload)));
                 if (src) {
                     src->hits++;
                     lasttime = src->lasttime;
@@ -790,10 +836,26 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                         lasttime = dst->lasttime;
                     dst->lasttime = curtime;
                 }
-                if (lasttime < curtime - MIN_INTERVAL)
-                    do_log(LOG_NOTICE, "Blocked FWD: %s->%s, hits: %d,%d, SRC: %s, DST: %s",
-                           src ? src->name : "(unknown)", dst ? dst->name : "(unknown)",
-                           src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
+                if (lasttime < curtime - MIN_INTERVAL) {
+                    if (use_dbus) {
+                        nfblockd_dbus_send_signal_nfq(LOG_NF_FWD, DBUS_TYPE_UINT32, &curtime,
+                                                      DBUS_TYPE_BYTE, reject_mark ? NFBP_ACTION_MARK__BY_REF : NFBP_ACTION_DROP__BY_REF,
+                                                      DBUS_TYPE_UINT32, &ip_src,
+                                                      DBUS_TYPE_STRING, src ? &(src->name) : NAME_EMPTY,
+                                                      DBUS_TYPE_UINT32, src ? &(src->hits) : HITS_EMPTY,
+                                                      DBUS_TYPE_UINT32, &ip_dst,
+                                                      DBUS_TYPE_STRING, dst ? &(dst->name) : NAME_EMPTY,
+                                                      DBUS_TYPE_UINT32, dst ? &(dst->hits) : HITS_EMPTY,
+                                                      DBUS_TYPE_INVALID); 
+                    }
+                    if (use_syslog) {
+                        ip2str(buf1, ntohl(SRC_ADDR(payload)));
+                        ip2str(buf2, ntohl(DST_ADDR(payload)));
+                        nfblockd_do_log(LOG_NOTICE, "Blocked FWD: %s->%s, hits: %d,%d, SRC: %s, DST: %s",
+                                        src ? src->name : "(unknown)", dst ? dst->name : "(unknown)",
+                                        src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
+                    }
+                }
             } else if ( unlikely(accept_mark) ) {
                 // we set the user-defined accept_mark and set NF_REPEAT verdict
                 // it's up to other iptables rules to decide what to do with this marked packet
@@ -804,11 +866,11 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
             }
             break;
         default:
-            do_log(LOG_NOTICE, "Not NF_LOCAL_IN/OUT/FORWARD packet!");
+            nfblockd_do_log(LOG_NOTICE, "Not NF_LOCAL_IN/OUT/FORWARD packet!");
             break;
         }
     } else {
-        do_log(LOG_ERR, "NFQUEUE: can't get msg packet header.");
+        nfblockd_do_log(LOG_ERR, "NFQUEUE: can't get msg packet header.");
         return 1;               // from nfqueue source: 0 = ok, >0 = soft error, <0 hard error
     }
     return 0;
@@ -826,26 +888,26 @@ nfqueue_loop ()
 
     h = nfq_open();
     if (!h) {
-        do_log(LOG_ERR, "Error during nfq_open(): %s", strerror(errno));
+        nfblockd_do_log(LOG_ERR, "Error during nfq_open(): %s", strerror(errno));
         return -1;
     }
 
     if (nfq_bind_pf(h, AF_INET) < 0) {
-        do_log(LOG_ERR, "Error during nfq_bind_pf(): %s", strerror(errno));
+        nfblockd_do_log(LOG_ERR, "Error during nfq_bind_pf(): %s", strerror(errno));
         nfq_close(h);
         return -1;
     }
 
-    do_log(LOG_INFO, "NFQUEUE: binding to queue %d", queue_num);
+    nfblockd_do_log(LOG_INFO, "NFQUEUE: binding to queue %d", queue_num);
     qh = nfq_create_queue(h, queue_num, &nfqueue_cb, NULL);
     if (!qh) {
-        do_log(LOG_ERR, "error during nfq_create_queue(): %s", strerror(errno));
+        nfblockd_do_log(LOG_ERR, "error during nfq_create_queue(): %s", strerror(errno));
         nfq_close(h);
         return -1;
     }
 
     if (nfq_set_mode(qh, NFQNL_COPY_PACKET, 21) < 0) {
-        do_log(LOG_ERR, "can't set packet_copy mode: %s", strerror(errno));
+        nfblockd_do_log(LOG_ERR, "can't set packet_copy mode: %s", strerror(errno));
         nfq_destroy_queue(qh);
         nfq_close(h);
         return -1;
@@ -880,7 +942,7 @@ nfqueue_loop ()
             case CMD_RELOAD:
                 blocklist_stats();
                 if (load_all_lists() < 0)
-                    do_log(LOG_ERR, "Cannot load the blocklist");
+                    nfblockd_do_log(LOG_ERR, "Cannot load the blocklist");
                 break;
             case CMD_QUIT:
                 goto out;
@@ -891,10 +953,10 @@ nfqueue_loop ()
         }
     }
 out:
-    do_log(LOG_INFO, "NFQUEUE: unbinding from queue 0");
+    nfblockd_do_log(LOG_INFO, "NFQUEUE: unbinding from queue 0");
     nfq_destroy_queue(qh);
     if (nfq_unbind_pf(h, AF_INET) < 0) {
-        do_log(LOG_ERR, "Error during nfq_unbind_pf(): %s", strerror(errno));
+        nfblockd_do_log(LOG_ERR, "Error during nfq_unbind_pf(): %s", strerror(errno));
     }
     nfq_close(h);
     return 0;
@@ -949,17 +1011,17 @@ static FILE *
 create_pidfile(const char *name)
 {
     FILE *f;
-	
+        
     f = fopen(name, "w");
     if (f == NULL){
-	fprintf(stderr, "Unable to create PID file %s: %s\n", name, strerror(errno));
-	return NULL;
+        fprintf(stderr, "Unable to create PID file %s: %s\n", name, strerror(errno));
+        return NULL;
     }
 
     /* this works even if pidfile is stale after daemon is sigkilled */
     if (lockf(fileno(f), F_TLOCK, 0) == -1){
-	fprintf(stderr, "Unable to set exclusive lock for pidfile %s: %s\n", name, strerror(errno));
-	return NULL;
+        fprintf(stderr, "Unable to set exclusive lock for pidfile %s: %s\n", name, strerror(errno));
+        return NULL;
     }
 
     fprintf(f, "%d\n", getpid());
@@ -1016,9 +1078,9 @@ do_benchmark()
     
     start = ustime();
     for (i = 0; i < ITER; i++) {
-	uint32_t ip;
-	ip = (uint32_t)random() ^ ((uint32_t)random() << 16);
-	blocklist_find(ip);
+        uint32_t ip;
+        ip = (uint32_t)random() ^ ((uint32_t)random() << 16);
+        blocklist_find(ip);
     }
     end = ustime();
 
@@ -1037,8 +1099,25 @@ print_usage()
     fprintf(stderr, "        -q 0-65535    NFQUEUE number, as specified in --queue-num with iptables\n");
     fprintf(stderr, "        -a MARK       32-bit mark to place on ACCEPTED packets\n");
     fprintf(stderr, "        -r MARK       32-bit mark to place on REJECTED packets\n");
+    fprintf(stderr, "        --no-syslog   Disable hit logging to the system log\n");
+#ifdef HAVE_DBUS
+    fprintf(stderr, "        --no-dbus     Disable D-Bus support for hit reporting\n");
+#endif
     fprintf(stderr, "\n");
 }
+
+enum long_option
+{
+    OPTION_NO_SYSLOG = CHAR_MAX + 1,
+    OPTION_NO_DBUS
+};
+
+static struct option const long_options[] = {
+    {"no-syslog", no_argument, NULL, OPTION_NO_SYSLOG},
+#ifdef HAVE_DBUS
+    {"no-dbus", no_argument, NULL, OPTION_NO_DBUS},
+#endif
+};
 
 int
 main(int argc, char *argv[])
@@ -1068,7 +1147,15 @@ main(int argc, char *argv[])
         case 'v':
             opt_verbose++;
             break;
+        case OPTION_NO_SYSLOG:
+            use_syslog = 0;
+            break;
+#ifdef HAVE_DBUS
+        case OPTION_NO_DBUS:
+            use_dbus = 0;
+            break;
         }
+#endif
     }
 
     if (queue_num < 0 || queue_num > 65535 || argc <= optind) {
@@ -1082,13 +1169,13 @@ main(int argc, char *argv[])
     blocklist_filenames[i] = 0;
 
     if (load_all_lists() < 0) {
-        do_log(LOG_ERR, "Cannot load the blocklist");
+        nfblockd_do_log(LOG_ERR, "Cannot load the blocklist");
         return -1;
     }
 
     if (benchmark) {
-	do_benchmark();
-	goto out;
+        do_benchmark();
+        goto out;
     }
 
     if (opt_daemon) {
@@ -1096,15 +1183,20 @@ main(int argc, char *argv[])
         openlog("nfblockd", 0, LOG_DAEMON);
     }
 
+    if (nfblockd_dbus_init() < 0) {
+        nfblockd_do_log(LOG_INFO, "Cannot initialize D-Bus");
+        use_dbus = 0;
+    }
+
     if (install_sighandler() != 0)
         return -1;
 
     pidfile = create_pidfile(pidfile_name);
     if (!pidfile)
-	return -1;
+        return -1;
 
-    do_log(LOG_INFO, "Started");
-    do_log(LOG_INFO, "Blocklist has %d entries", blocklist_count);
+    nfblockd_do_log(LOG_INFO, "Started");
+    nfblockd_do_log(LOG_INFO, "Blocklist has %d entries", blocklist_count);
     nfqueue_loop();
     blocklist_stats();
 
@@ -1117,8 +1209,8 @@ out:
     free(blocklist_filenames);
 
     if (pidfile) {
-	fclose(pidfile);
-	unlink(pidfile_name);
+        fclose(pidfile);
+        unlink(pidfile_name);
     }
 
     return 0;
