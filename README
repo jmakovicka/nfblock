@@ -127,6 +127,15 @@ be properly merged in that case.
 
    kill -HUP <pid>    # reloads blocklist(s) and resets stats
 
+.D-Bus support.
+
+   NFblockD is able to report filter hits via D-Bus interface
+   org.netfilter.nfblockd . You can check thedunctionality by running
+
+   dbus-monitor --system
+
+   D-Bus can be eventually disabled using the --no-dbus option.
+
 .Credits.
 
 - Morpheus (ebutera at users.berlios.de) for the original MoBlock and
