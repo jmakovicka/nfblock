@@ -23,5 +23,11 @@
    Boston, MA 02110-1301, USA.
 */
 
-void nfblockd_do_log(int priority, const char *format, ...);
+typedef enum {
+    LOG_NF_IN,
+    LOG_NF_OUT,
+    LOG_NF_FWD,
+} dbus_log_message_t;
+
+typedef void (*log_func_t) (int priority, const char *format, ...);
 
