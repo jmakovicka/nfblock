@@ -69,12 +69,25 @@ typedef struct
 {
     uint32_t ip_min, ip_max;
     char *name;
+} block_sub_entry_t;
+
+typedef struct
+{
+    /* must start with sub-entry */
+    uint32_t ip_min, ip_max;
+    char *name;
+
     int hits;
+    int merged_idx;
+
     time_t lasttime;
 } block_entry_t;
 
 static block_entry_t *blocklist = NULL;
 static unsigned int blocklist_count = 0, blocklist_size = 0;
+
+static block_sub_entry_t *blocklist_merged = NULL;
+static unsigned int blocklist_merged_count = 0;
 
 int opt_daemon = 0, daemonized = 0;
 int benchmark = 0;
@@ -185,7 +198,7 @@ close_dbus()
 
     if (dbus_lh) {
         ret = dlclose(dbus_lh);
-	dbus_lh = 0;
+        dbus_lh = 0;
     }
 
     return ret;
@@ -214,28 +227,30 @@ blocklist_append(uint32_t ip_min, uint32_t ip_max, const char *name, iconv_t ic)
     e = blocklist + blocklist_count;
     e->ip_min = ip_min;
     e->ip_max = ip_max;
-    if (ic > 0) {
-	char buf2[MAX_LABEL_LENGTH];
-	size_t insize, outsize;
-	char *inb, *outb;
-	int ret;
-	insize = strlen(name);
-	inb = (char *)name;
-	outsize = MAX_LABEL_LENGTH - 1;
-	outb = buf2;
-	buf2[outsize] = 0;
-	ret = iconv(ic, &inb, &insize, &outb, &outsize);
-	if (ret >= 0) {
-	    e->name = strdup(buf2);
-	} else {
-	    do_log(LOG_ERR, "Cannot convert string: %s", strerror(errno));
-	    e->name = strdup("(conversion error)");
-	}
+    if (ic >= 0) {
+        char buf2[MAX_LABEL_LENGTH];
+        size_t insize, outsize;
+        char *inb, *outb;
+        int ret;
+        
+        insize = strlen(name);
+        inb = (char *)name;
+        outsize = MAX_LABEL_LENGTH - 1;
+        outb = buf2;
+        memset(buf2, 0, MAX_LABEL_LENGTH);
+        ret = iconv(ic, &inb, &insize, &outb, &outsize);
+        if (ret >= 0) {
+            e->name = strdup(buf2);
+        } else {
+            do_log(LOG_ERR, "Cannot convert string: %s", strerror(errno));
+            e->name = strdup("(conversion error)");
+        }
     } else {
-	e->name = strdup(name);
+        e->name = strdup(name);
     }
     e->hits = 0;
     e->lasttime = 0;
+    e->merged_idx = -1;
     blocklist_count++;
 }
 
@@ -245,12 +260,21 @@ blocklist_clear(int start)
     int i;
 
     for (i = start; i < blocklist_count; i++)
-        free(blocklist[i].name);
+        if (blocklist[i].name)
+            free(blocklist[i].name);
     if (start == 0) {
         free(blocklist);
         blocklist = NULL;
         blocklist_count = 0;
         blocklist_size = 0;
+        if (blocklist_merged) {
+	    for (i = 0; i < blocklist_merged_count; i++)
+		if (blocklist_merged[i].name)
+		    free(blocklist_merged[i].name);
+            free(blocklist_merged);
+            blocklist_merged = 0;
+        }
+        blocklist_merged_count = 0;
     } else {
         blocklist_size = blocklist_count = start;
         blocklist = realloc(blocklist, sizeof(block_entry_t) * blocklist_size);
@@ -283,21 +307,14 @@ blocklist_sort()
     qsort(blocklist, blocklist_count, sizeof(block_entry_t), block_entry_compare);
 }
 
-static int
-find_name(int start, int end, const char *name)
-{
-    int i;
-    for (i = start; i <= end; i++) {
-        if (strcmp(blocklist[i].name, name) == 0)
-            return i;
-    }
-    return -1;
-}
-
 static void
 blocklist_trim()
 {
     int i, j, k, merged = 0;
+
+    /* pessimistic, will be reallocated later */
+    blocklist_merged = (block_sub_entry_t *)malloc(blocklist_count * sizeof(block_sub_entry_t));
+    blocklist_merged_count = 0;
 
     for (i = 0; i < blocklist_count; i++) {
         uint32_t ip_max;
@@ -311,37 +328,34 @@ blocklist_trim()
                 ip_max = blocklist[j].ip_max;
         }
         if (j > i + 1) {
-            char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE], dst[MAX_LABEL_LENGTH];
+            char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
             char *tmp = malloc(32 * (j - i + 1) + 1);
-            tmp[0] = 0;
             /* List the merged entries */
-            dst[0] = 0;
+            tmp[0] = 0;
             for (k = i; k < j; k++) {
                 char tmp2[33];
                 ip2str(buf1, blocklist[k].ip_min);
                 ip2str(buf2, blocklist[k].ip_max);
                 sprintf(tmp2, "%s-%s ", buf1, buf2);
                 strcat(tmp, tmp2);
-                /* Avoid duplicate names in merged entries */
-                if (find_name(i, k - 1, blocklist[k].name) < 0) {
-                    if (strlen(dst))
-                        strncat(dst, "; ", MAX_LABEL_LENGTH - strlen(dst) - 1);
-                    strncat(dst, blocklist[k].name, MAX_LABEL_LENGTH - strlen(dst) - 1);
-                }
             }
-
             ip2str(buf1, blocklist[i].ip_min);
             ip2str(buf2, ip_max);
-            do_log(LOG_DEBUG, "Merging ranges: %sinto %s-%s (%s)", tmp, buf1, buf2, dst);
+            do_log(LOG_DEBUG, "Merging ranges: %sinto %s-%s", tmp, buf1, buf2);
             free(tmp);
 
-            /* Extend the range and mark the unneeded entries */
-            blocklist[i].ip_max = ip_max;
+            /* Copy the sub-entries and mark the unneeded entries */
+            blocklist[i].merged_idx = blocklist_merged_count;
             for (k = i; k < j; k++) {
-                free(blocklist[k].name);
+                blocklist_merged[blocklist_merged_count].ip_min = blocklist[k].ip_min;
+                blocklist_merged[blocklist_merged_count].ip_max = blocklist[k].ip_max;
+                blocklist_merged[blocklist_merged_count].name = blocklist[k].name;
+                blocklist_merged_count++;
                 if (k > i) blocklist[k].hits = -1;
             }
-            blocklist[i].name = strdup(dst);
+            /* Extend the range */
+            blocklist[i].ip_max = ip_max;
+            blocklist[i].name = 0;
             merged += j - i - 1;
             i = j - 1;
         }
@@ -362,6 +376,7 @@ blocklist_trim()
 
 
     blocklist = realloc(blocklist, blocklist_count * sizeof(block_entry_t));
+    blocklist_merged = (block_sub_entry_t *)realloc(blocklist_merged, blocklist_merged_count * sizeof(block_sub_entry_t));
 }
 
 static void
@@ -384,12 +399,37 @@ blocklist_stats()
 }
 
 static block_entry_t *
-blocklist_find(uint32_t ip)
+blocklist_find(uint32_t ip, block_sub_entry_t **sub, int max)
 {
     block_entry_t e;
+    block_entry_t *ret;
+    int i, cnt;
 
     e.ip_min = e.ip_max = ip;
-    return bsearch(&e, blocklist, blocklist_count, sizeof(block_entry_t), block_key_compare);
+    ret = bsearch(&e, blocklist, blocklist_count, sizeof(block_entry_t), block_key_compare);
+
+    if (!ret || !sub)
+        // entry not found
+        return ret;
+
+    if (ret->name) {
+        // entry found, no subentries
+        sub[0] = (block_sub_entry_t *)ret;
+        sub[1] = 0;
+        return ret;
+    }
+
+    // scan the subentries
+    cnt = 0;
+    for (i = ret->merged_idx; i < blocklist_merged_count; i++) {
+        block_sub_entry_t * e = &blocklist_merged[i];
+        if (cnt <= max)
+            break;
+        if (e->ip_min <= ip && e->ip_max >= ip)
+            sub[cnt++] = e;
+    }
+    sub[cnt] = 0;
+    return ret;
 }
 
 /*
@@ -574,7 +614,7 @@ loadlist_dat(const char *filename, const char *charset)
         total++;
         if (ok == 0 && total > 100) {
             stream_close(&s);
-	    goto err;
+            goto err;
         }
 
         memset(name, 0, sizeof(name));
@@ -594,7 +634,7 @@ loadlist_dat(const char *filename, const char *charset)
 
 err:
     if (ic)
-	iconv_close(ic);
+        iconv_close(ic);
 
     return ret;
 }
@@ -647,7 +687,7 @@ loadlist_p2p(const char *filename, const char *charset)
 
 err:
     if (ic)
-	iconv_close(ic);
+        iconv_close(ic);
 
     return ret;
 }
@@ -707,12 +747,12 @@ loadlist_p2b(const char *filename)
 
     switch (version) {
     case 1:
-	ic = iconv_open("UTF-8", "ISO8859-1");
-	break;
+        ic = iconv_open("UTF-8", "ISO8859-1");
+        break;
     case 2:
     case 3:
-	ic = iconv_open("UTF-8", "UTF-8");
-	break;
+        ic = iconv_open("UTF-8", "UTF-8");
+        break;
     default:
         do_log(LOG_INFO, "Unknown P2B version: %d", version);
         goto err;
@@ -803,7 +843,7 @@ err:
     }
     fclose(f);
     if (ic)
-	iconv_close(ic);
+        iconv_close(ic);
     return ret;
 }
 
@@ -841,6 +881,7 @@ load_all_lists()
 {
     int i, ret = 0;
 
+    blocklist_clear(0);
     for (i = 0; i < blockfile_count; i++) {
         if (load_list(blocklist_filenames[i], blocklist_charsets[i])) {
             do_log(LOG_ERR, "Error loading %s", blocklist_filenames[i]);
@@ -852,6 +893,7 @@ load_all_lists()
     return ret;
 }
 
+#define MAX_RANGES 16
 static int
 nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
            struct nfq_data *nfa, void *data)
@@ -862,6 +904,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     block_entry_t *src, *dst;
     uint32_t ip_src, ip_dst;
     char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
+    block_sub_entry_t *sranges[MAX_RANGES + 1], *dranges[MAX_RANGES + 1];
 
     ph = nfq_get_msg_packet_hdr(nfa);
     if (ph) {
@@ -871,7 +914,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
         switch (ph->hook) {
         case NF_IP_LOCAL_IN:
             ip_src = ntohl(SRC_ADDR(payload));
-            src = blocklist_find(ip_src);
+            src = blocklist_find(ip_src, sranges, MAX_RANGES);
             if (src) {
                 // we drop the packet instead of rejecting
                 // we don't want the other host to know we are alive
@@ -883,7 +926,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                         nfblockd_dbus_send_signal_nfq(do_log, LOG_NF_IN, DBUS_TYPE_UINT32, &curtime, /* this is unsigned because we don't log events before the 'epoch' */
                                                       DBUS_TYPE_BYTE, NFBP_ACTION_DROP__BY_REF,
                                                       DBUS_TYPE_UINT32, &ip_src,
-                                                      DBUS_TYPE_STRING, &(src->name),
+                                                      DBUS_TYPE_STRING, &(sranges[0]->name),
                                                       DBUS_TYPE_UINT32, &(src->hits),
                                                       DBUS_TYPE_INVALID);
                     }
@@ -891,7 +934,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                     if (use_syslog) {
                         ip2str(buf1, ntohl(SRC_ADDR(payload)));
                         do_log(LOG_NOTICE, "Blocked IN: %s, hits: %d, SRC: %s",
-                                        src->name, src->hits, buf1);
+                                        sranges[0]->name, src->hits, buf1);
                     }
                 }
                 src->lasttime = curtime;
@@ -906,7 +949,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
             break;
         case NF_IP_LOCAL_OUT:
             ip_dst = ntohl(DST_ADDR(payload));
-            dst = blocklist_find(ip_dst);
+            dst = blocklist_find(ip_dst, dranges, MAX_RANGES);
             if (dst) {
                 if (likely(reject_mark)) {
                     // we set the user-defined reject_mark and set NF_REPEAT verdict
@@ -923,14 +966,14 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                         nfblockd_dbus_send_signal_nfq(do_log, LOG_NF_OUT, DBUS_TYPE_UINT32, &curtime,
                                                       DBUS_TYPE_BYTE, reject_mark ? NFBP_ACTION_MARK__BY_REF : NFBP_ACTION_DROP__BY_REF,
                                                       DBUS_TYPE_UINT32, &ip_dst,
-                                                      DBUS_TYPE_STRING, &(dst->name),
+                                                      DBUS_TYPE_STRING, &(dranges[0]->name),
                                                       DBUS_TYPE_UINT32, &(dst->hits),
                                                       DBUS_TYPE_INVALID);
                     }
 #endif
                     if (use_syslog) {
                         do_log(LOG_NOTICE, "Blocked OUT: %s, hits: %d, DST: %s",
-                                        dst->name, dst->hits, buf1);
+                                        dranges[0]->name, dst->hits, buf1);
                     }
                 }
                 dst->lasttime = curtime;
@@ -946,8 +989,8 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
         case NF_IP_FORWARD:
             ip_src = ntohl(SRC_ADDR(payload));
             ip_dst = ntohl(DST_ADDR(payload));
-            src = blocklist_find(ip_src);
-            dst = blocklist_find(ip_dst);
+            src = blocklist_find(ip_src, sranges, MAX_RANGES);
+            dst = blocklist_find(ip_dst, dranges, MAX_RANGES);
             if (dst || src) {
                 int lasttime = 0;
                 if (likely(reject_mark)) {
@@ -974,10 +1017,10 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                         nfblockd_dbus_send_signal_nfq(do_log, LOG_NF_FWD, DBUS_TYPE_UINT32, &curtime,
                                                       DBUS_TYPE_BYTE, reject_mark ? NFBP_ACTION_MARK__BY_REF : NFBP_ACTION_DROP__BY_REF,
                                                       DBUS_TYPE_UINT32, &ip_src,
-                                                      DBUS_TYPE_STRING, src ? &(src->name) : NAME_EMPTY,
+                                                      DBUS_TYPE_STRING, src ? &(sranges[0]->name) : NAME_EMPTY,
                                                       DBUS_TYPE_UINT32, src ? &(src->hits) : HITS_EMPTY,
                                                       DBUS_TYPE_UINT32, &ip_dst,
-                                                      DBUS_TYPE_STRING, dst ? &(dst->name) : NAME_EMPTY,
+                                                      DBUS_TYPE_STRING, dst ? &(dranges[0]->name) : NAME_EMPTY,
                                                       DBUS_TYPE_UINT32, dst ? &(dst->hits) : HITS_EMPTY,
                                                       DBUS_TYPE_INVALID);
                     }
@@ -986,7 +1029,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                         ip2str(buf1, ntohl(SRC_ADDR(payload)));
                         ip2str(buf2, ntohl(DST_ADDR(payload)));
                         do_log(LOG_NOTICE, "Blocked FWD: %s->%s, hits: %d,%d, SRC: %s, DST: %s",
-                                        src ? src->name : "(unknown)", dst ? dst->name : "(unknown)",
+                                        src ? sranges[0]->name : "(unknown)", dst ? dranges[0]->name : "(unknown)",
                                         src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
                     }
                 }
@@ -1214,7 +1257,7 @@ do_benchmark()
     for (i = 0; i < ITER; i++) {
         uint32_t ip;
         ip = (uint32_t)random() ^ ((uint32_t)random() << 16);
-        blocklist_find(ip);
+        blocklist_find(ip, 0, 0);
     }
     end = ustime();
 
@@ -1294,7 +1337,7 @@ main(int argc, char *argv[])
             current_charset = optarg;
             break;
         case 'f':
-	    add_blocklist(optarg, current_charset);
+            add_blocklist(optarg, current_charset);
             break;
         case 'v':
             opt_verbose++;
@@ -1316,7 +1359,7 @@ main(int argc, char *argv[])
     }
 
     for (i = 0; i < argc - optind; i++)
-	add_blocklist(argv[optind + i], current_charset);
+        add_blocklist(argv[optind + i], current_charset);
 
     if (blockfile_count == 0) {
         print_usage();
@@ -1340,17 +1383,17 @@ main(int argc, char *argv[])
 
 #ifdef HAVE_DBUS
     if (use_dbus) {
-	if (open_dbus() < 0) {
-	    do_log(LOG_ERR, "Cannot load D-Bus plugin");
-	    use_dbus = 0;
-	}
+        if (open_dbus() < 0) {
+            do_log(LOG_ERR, "Cannot load D-Bus plugin");
+            use_dbus = 0;
+        }
     }
     
     if (use_dbus) {
-	if (nfblockd_dbus_init(do_log) < 0) {
-	    do_log(LOG_INFO, "Cannot initialize D-Bus");
-	    use_dbus = 0;
-	}
+        if (nfblockd_dbus_init(do_log) < 0) {
+            do_log(LOG_INFO, "Cannot initialize D-Bus");
+            use_dbus = 0;
+        }
     }
 #endif
 
@@ -1374,7 +1417,7 @@ out:
 
 #ifdef HAVE_DBUS
     if (use_dbus)
-	close_dbus();
+        close_dbus();
 #endif
 
     blocklist_clear(0);
