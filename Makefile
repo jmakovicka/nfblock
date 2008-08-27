@@ -33,7 +33,7 @@ endif
 DISTDIR = $(PKGNAME)-$(VERSION)
 
 DISTFILES = \
-	Makefile nfblockd.c nfblockd.h dbus.c \
+	Makefile nfblockd.c nfblockd.h dbus.c dbus.h \
 	dbus-nfblockd.conf ChangeLog README \
 	debian/changelog debian/control debian/copyright \
 	debian/cron.daily debian/default debian/init.d \
