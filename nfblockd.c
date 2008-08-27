@@ -44,6 +44,7 @@
 #include <poll.h>
 #include <time.h>
 #include <zlib.h>
+#include <iconv.h>
 #include <dlfcn.h>
 
 #include "nfblockd.h"
@@ -83,7 +84,12 @@ int use_dbus = 1;
 int use_syslog = 1;
 uint32_t accept_mark = 0, reject_mark = 0;
 const char *pidfile_name = "/var/run/nfblockd.pid";
-char **blocklist_filenames;
+
+const char *current_charset = 0;
+
+int blockfile_count = 0;
+const char **blocklist_filenames = 0;
+const char **blocklist_charsets = 0;
 
 volatile command_t command = CMD_NONE;
 time_t curtime = 0;
@@ -198,7 +204,7 @@ ip2str(char *dst, uint32_t ip)
 }
 
 static void
-blocklist_append(uint32_t ip_min, uint32_t ip_max, const char *name)
+blocklist_append(uint32_t ip_min, uint32_t ip_max, const char *name, iconv_t ic)
 {
     block_entry_t *e;
     if (blocklist_size == blocklist_count) {
@@ -208,7 +214,26 @@ blocklist_append(uint32_t ip_min, uint32_t ip_max, const char *name)
     e = blocklist + blocklist_count;
     e->ip_min = ip_min;
     e->ip_max = ip_max;
-    e->name = strdup(name);
+    if (ic > 0) {
+	char buf2[MAX_LABEL_LENGTH];
+	size_t insize, outsize;
+	char *inb, *outb;
+	int ret;
+	insize = strlen(name);
+	inb = (char *)name;
+	outsize = MAX_LABEL_LENGTH - 1;
+	outb = buf2;
+	buf2[outsize] = 0;
+	ret = iconv(ic, &inb, &insize, &outb, &outsize);
+	if (ret >= 0) {
+	    e->name = strdup(buf2);
+	} else {
+	    do_log(LOG_ERR, "Cannot convert string: %s", strerror(errno));
+	    e->name = strdup("(conversion error)");
+	}
+    } else {
+	e->name = strdup(name);
+    }
     e->hits = 0;
     e->lasttime = 0;
     blocklist_count++;
@@ -520,16 +545,24 @@ stream_getline(char *buf, int max, stream_t *stream)
 }
 
 static int
-loadlist_dat(char *filename)
+loadlist_dat(const char *filename, const char *charset)
 {
     stream_t s;
     char buf[MAX_LABEL_LENGTH], name[MAX_LABEL_LENGTH];
     int n, ip1[4], ip2[4], dummy;
     int total, ok;
-
+    int ret = -1;
+    iconv_t ic;
+    
     if (stream_open(&s, filename) < 0) {
         do_log(LOG_INFO, "Error opening %s.", filename);
         return -1;
+    }
+
+    ic = iconv_open("UTF-8", charset);
+    if (ic < 0) {
+        do_log(LOG_INFO, "Cannot initialize charset conversion: %s", strerror(errno));
+        goto err;
     }
 
     total = ok = 0;
@@ -541,7 +574,7 @@ loadlist_dat(char *filename)
         total++;
         if (ok == 0 && total > 100) {
             stream_close(&s);
-            return -1;
+	    goto err;
         }
 
         memset(name, 0, sizeof(name));
@@ -550,28 +583,41 @@ loadlist_dat(char *filename)
                    &ip2[0], &ip2[1], &ip2[2], &ip2[3],
                    &dummy, name);
         if (n != 10) continue;
-
-        blocklist_append(assemble_ip(ip1), assemble_ip(ip2), name);
+        blocklist_append(assemble_ip(ip1), assemble_ip(ip2), name, ic);
         ok++;
     }
     stream_close(&s);
 
-    if (ok == 0) return -1;
+    if (ok == 0) goto err;
 
-    return 0;
+    ret = 0;
+
+err:
+    if (ic)
+	iconv_close(ic);
+
+    return ret;
 }
 
 static int
-loadlist_p2p(char *filename)
+loadlist_p2p(const char *filename, const char *charset)
 {
     stream_t s;
     char buf[MAX_LABEL_LENGTH], name[MAX_LABEL_LENGTH];
     int n, ip1[4], ip2[4];
     int total, ok;
+    int ret = -1;
+    iconv_t ic;
 
     if (stream_open(&s, filename) < 0) {
         do_log(LOG_INFO, "Error opening %s.", filename);
         return -1;
+    }
+
+    ic = iconv_open("UTF-8", charset);
+    if (ic < 0) {
+        do_log(LOG_INFO, "Cannot initialize charset conversion: %s", strerror(errno));
+        goto err;
     }
 
     total = ok = 0;
@@ -580,7 +626,7 @@ loadlist_p2p(char *filename)
         total++;
         if (ok == 0 && total > 100) {
             stream_close(&s);
-            return -1;
+            goto err;
         }
 
         memset(name, 0, sizeof(name));
@@ -590,14 +636,20 @@ loadlist_p2p(char *filename)
                    &ip2[0], &ip2[1], &ip2[2], &ip2[3]);
         if (n != 9) continue;
 
-        blocklist_append(assemble_ip(ip1), assemble_ip(ip2), name);
+        blocklist_append(assemble_ip(ip1), assemble_ip(ip2), name, ic);
         ok++;
     }
     stream_close(&s);
 
-    if (ok == 0) return -1;
+    if (ok == 0) goto err;
 
-    return 0;
+    ret = 0;
+
+err:
+    if (ic)
+	iconv_close(ic);
+
+    return ret;
 }
 
 static int
@@ -620,7 +672,7 @@ read_cstr(char *buf, int maxsize, FILE *f)
 }
 
 static int
-loadlist_p2b(char *filename)
+loadlist_p2b(const char *filename)
 {
     FILE *f;
     uint8_t header[8];
@@ -628,6 +680,7 @@ loadlist_p2b(char *filename)
     uint32_t cnt, ip1, ip2, idx;
     char **labels = NULL;
     int ret = -1;
+    iconv_t ic = (iconv_t) -1;
 
     f = fopen(filename, "r");
     if (!f) {
@@ -654,6 +707,24 @@ loadlist_p2b(char *filename)
 
     switch (version) {
     case 1:
+	ic = iconv_open("UTF-8", "ISO8859-1");
+	break;
+    case 2:
+    case 3:
+	ic = iconv_open("UTF-8", "UTF-8");
+	break;
+    default:
+        do_log(LOG_INFO, "Unknown P2B version: %d", version);
+        goto err;
+    }
+
+    if (ic < 0) {
+        do_log(LOG_INFO, "Cannot initialize charset conversion: %s", strerror(errno));
+        goto err;
+    }
+
+    switch (version) {
+    case 1:
     case 2:
         for (;;) {
             char buf[MAX_LABEL_LENGTH];
@@ -673,7 +744,7 @@ loadlist_p2b(char *filename)
                 do_log(LOG_ERR, "P2B: Error reading range end");
                 break;
             }
-            blocklist_append(ntohl(ip1), ntohl(ip2), buf);
+            blocklist_append(ntohl(ip1), ntohl(ip2), buf, ic);
         }
         break;
     case 3:
@@ -716,12 +787,9 @@ loadlist_p2b(char *filename)
                 do_log(LOG_ERR, "P2B3: Error reading range end");
                 goto err;
             }
-            blocklist_append(ntohl(ip1), ntohl(ip2), labels[ntohl(idx)]);
+            blocklist_append(ntohl(ip1), ntohl(ip2), labels[ntohl(idx)], ic);
         }
         break;
-    default:
-        do_log(LOG_INFO, "Unknown P2B version: %d", version);
-        goto err;
     }
 
     ret = 0;
@@ -734,11 +802,13 @@ err:
         free(labels);
     }
     fclose(f);
+    if (ic)
+	iconv_close(ic);
     return ret;
 }
 
 static int
-load_list(char *filename)
+load_list(const char *filename, const char *charset)
 {
     int prevcount;
 
@@ -750,14 +820,14 @@ load_list(char *filename)
     blocklist_clear(prevcount);
 
     prevcount = blocklist_count;
-    if (loadlist_dat(filename) == 0) {
+    if (loadlist_dat(filename, charset ? charset : "ISO8859-1") == 0) {
         do_log(LOG_DEBUG, "IPFilter: %d entries loaded", blocklist_count - prevcount);
         return 0;
     }
     blocklist_clear(prevcount);
 
     prevcount = blocklist_count;
-    if (loadlist_p2p(filename) == 0) {
+    if (loadlist_p2p(filename, charset ? charset : "ISO8859-1") == 0) {
         do_log(LOG_DEBUG, "PeerGuardian Ascii: %d entries loaded", blocklist_count - prevcount);
         return 0;
     }
@@ -771,8 +841,8 @@ load_all_lists()
 {
     int i, ret = 0;
 
-    for (i = 0; blocklist_filenames[i]; i++) {
-        if (load_list(blocklist_filenames[i])) {
+    for (i = 0; i < blockfile_count; i++) {
+        if (load_list(blocklist_filenames[i], blocklist_charsets[i])) {
             do_log(LOG_ERR, "Error loading %s", blocklist_filenames[i]);
             ret = -1;
         }
@@ -1157,6 +1227,8 @@ print_usage()
     fprintf(stderr, "nfblockd " VERSION " (c) 2008 Jindrich Makovicka\n");
     fprintf(stderr, "Syntax: nfblockd -d [-a MARK] [-r MARK] [-q 0-65535] BLOCKLIST...\n\n");
     fprintf(stderr, "        -d            Run as daemon\n");
+    fprintf(stderr, "        -c            Blocklist file charset (for all following filenames)\n");
+    fprintf(stderr, "        -f            Blocklist file name\n");
     fprintf(stderr, "        -p NAME       Use a pidfile named NAME\n");
     fprintf(stderr, "        -v            Verbose output\n");
     fprintf(stderr, "        -b            Benchmark IP matches per second\n");
@@ -1183,12 +1255,22 @@ static struct option const long_options[] = {
 #endif
 };
 
+void
+add_blocklist(const char *name, const char *charset)
+{
+    blocklist_filenames = (const char**)realloc(blocklist_filenames, sizeof(const char*) * (blockfile_count + 1));
+    blocklist_charsets = (const char**)realloc(blocklist_charsets, sizeof(const char*) * (blockfile_count + 1));
+    blocklist_filenames[blocklist_count] = name;
+    blocklist_charsets[blocklist_count] = charset;
+    blockfile_count++;
+}
+
 int
 main(int argc, char *argv[])
 {
     int opt, i;
 
-    while ((opt = getopt(argc, argv, "q:a:r:dbp:v")) != -1) {
+    while ((opt = getopt(argc, argv, "q:a:r:dbp:f:c:v")) != -1) {
         switch (opt) {
         case 'd':
             opt_daemon = 1;
@@ -1208,6 +1290,12 @@ main(int argc, char *argv[])
         case 'p':
             pidfile_name = optarg;
             break;
+        case 'c':
+            current_charset = optarg;
+            break;
+        case 'f':
+	    add_blocklist(optarg, current_charset);
+            break;
         case 'v':
             opt_verbose++;
             break;
@@ -1222,15 +1310,18 @@ main(int argc, char *argv[])
         }
     }
 
-    if (queue_num < 0 || queue_num > 65535 || argc <= optind) {
+    if (queue_num < 0 || queue_num > 65535) {
         print_usage();
         exit(1);
     }
 
-    blocklist_filenames = (char**)malloc(sizeof(char*) * (argc - optind + 1));
     for (i = 0; i < argc - optind; i++)
-        blocklist_filenames[i] = argv[optind + i];
-    blocklist_filenames[i] = 0;
+	add_blocklist(argv[optind + i], current_charset);
+
+    if (blockfile_count == 0) {
+        print_usage();
+        exit(1);
+    }
 
     if (load_all_lists() < 0) {
         do_log(LOG_ERR, "Cannot load the blocklist");
@@ -1288,6 +1379,7 @@ out:
 
     blocklist_clear(0);
     free(blocklist_filenames);
+    free(blocklist_charsets);
 
     if (pidfile) {
         fclose(pidfile);
