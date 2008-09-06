@@ -24,6 +24,9 @@
    Boston, MA 02110-1301, USA.
 */
 
+#ifndef DBUS_H
+#define DBUS_H
+
 #ifdef HAVE_DBUS
 
 int nfblockd_dbus_init();
@@ -54,3 +57,5 @@ typedef enum {
     LOG_NF_OUT,
     LOG_NF_FWD,
 } dbus_log_message_t;
+
+#endif

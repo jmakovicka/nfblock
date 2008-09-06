@@ -42,12 +42,12 @@
 #include <linux/netfilter_ipv4.h>
 #include <libnetfilter_queue/libnetfilter_queue.h>
 #include <poll.h>
-#include <time.h>
-#include <zlib.h>
-#include <iconv.h>
 #include <dlfcn.h>
 
+#include "blocklist.h"
+#include "blockload.h"
 #include "nfblockd.h"
+#include "stream.h"
 
 #define likely(x)       __builtin_expect((x),1)
 #define unlikely(x)     __builtin_expect((x),0)
@@ -55,7 +55,6 @@
 #define SRC_ADDR(pkt) (((struct iphdr *)pkt)->saddr)
 #define DST_ADDR(pkt) (((struct iphdr *)pkt)->daddr)
 
-#define CHUNK 1024
 #define MIN_INTERVAL 60
 
 typedef enum {
@@ -65,53 +64,27 @@ typedef enum {
     CMD_QUIT,
 } command_t;
 
-typedef struct
-{
-    uint32_t ip_min, ip_max;
-    char *name;
-} block_sub_entry_t;
+static blocklist_t blocklist;
 
-typedef struct
-{
-    /* must start with sub-entry */
-    uint32_t ip_min, ip_max;
-    char *name;
+static int opt_daemon = 0, daemonized = 0;
+static int benchmark = 0;
+static int opt_verbose = 0;
+static int queue_num = 0;
+static int use_syslog = 1;
+static uint32_t accept_mark = 0, reject_mark = 0;
+static const char *pidfile_name = "/var/run/nfblockd.pid";
 
-    int hits;
-    int merged_idx;
+static const char *current_charset = 0;
 
-    time_t lasttime;
-} block_entry_t;
+static int blockfile_count = 0;
+static const char **blocklist_filenames = 0;
+static const char **blocklist_charsets = 0;
 
-static block_entry_t *blocklist = NULL;
-static unsigned int blocklist_count = 0, blocklist_size = 0;
+static volatile command_t command = CMD_NONE;
+static time_t curtime = 0;
+static FILE* pidfile = NULL;
 
-static block_sub_entry_t *blocklist_merged = NULL;
-static unsigned int blocklist_merged_count = 0;
-
-int opt_daemon = 0, daemonized = 0;
-int benchmark = 0;
-int opt_verbose = 0;
-int queue_num = 0;
-int use_dbus = 1;
-int use_syslog = 1;
-uint32_t accept_mark = 0, reject_mark = 0;
-const char *pidfile_name = "/var/run/nfblockd.pid";
-
-const char *current_charset = 0;
-
-int blockfile_count = 0;
-const char **blocklist_filenames = 0;
-const char **blocklist_charsets = 0;
-
-volatile command_t command = CMD_NONE;
-time_t curtime = 0;
-FILE* pidfile = NULL;
-
-#define IP_STRING_SIZE 16
-#define MAX_LABEL_LENGTH 255
-
-static void
+void
 do_log(int priority, const char *format, ...)
 {
     va_list ap;
@@ -136,6 +109,8 @@ noprint:
 #ifdef HAVE_DBUS
 
 #include <dbus/dbus.h>
+
+static int use_dbus = 1;
 
 static int __null_int = 0;
 static char *__null_str = "";
@@ -206,7 +181,7 @@ close_dbus()
 
 #endif
 
-static void
+void
 ip2str(char *dst, uint32_t ip)
 {
     sprintf(dst, "%d.%d.%d.%d",
@@ -216,680 +191,21 @@ ip2str(char *dst, uint32_t ip)
             ip & 0xff);
 }
 
-static void
-blocklist_append(uint32_t ip_min, uint32_t ip_max, const char *name, iconv_t ic)
-{
-    block_entry_t *e;
-    if (blocklist_size == blocklist_count) {
-        blocklist_size += 16384;
-        blocklist = realloc(blocklist, sizeof(block_entry_t) * blocklist_size);
-    }
-    e = blocklist + blocklist_count;
-    e->ip_min = ip_min;
-    e->ip_max = ip_max;
-    if (ic >= 0) {
-        char buf2[MAX_LABEL_LENGTH];
-        size_t insize, outsize;
-        char *inb, *outb;
-        int ret;
-        
-        insize = strlen(name);
-        inb = (char *)name;
-        outsize = MAX_LABEL_LENGTH - 1;
-        outb = buf2;
-        memset(buf2, 0, MAX_LABEL_LENGTH);
-        ret = iconv(ic, &inb, &insize, &outb, &outsize);
-        if (ret >= 0) {
-            e->name = strdup(buf2);
-        } else {
-            do_log(LOG_ERR, "Cannot convert string: %s", strerror(errno));
-            e->name = strdup("(conversion error)");
-        }
-    } else {
-        e->name = strdup(name);
-    }
-    e->hits = 0;
-    e->lasttime = 0;
-    e->merged_idx = -1;
-    blocklist_count++;
-}
-
-static void
-blocklist_clear(int start)
-{
-    int i;
-
-    for (i = start; i < blocklist_count; i++)
-        if (blocklist[i].name)
-            free(blocklist[i].name);
-    if (start == 0) {
-        free(blocklist);
-        blocklist = NULL;
-        blocklist_count = 0;
-        blocklist_size = 0;
-        if (blocklist_merged) {
-	    for (i = 0; i < blocklist_merged_count; i++)
-		if (blocklist_merged[i].name)
-		    free(blocklist_merged[i].name);
-            free(blocklist_merged);
-            blocklist_merged = 0;
-        }
-        blocklist_merged_count = 0;
-    } else {
-        blocklist_size = blocklist_count = start;
-        blocklist = realloc(blocklist, sizeof(block_entry_t) * blocklist_size);
-    }
-}
-
-static int
-block_entry_compare(const void *a, const void *b)
-{
-    const block_entry_t *e1 = a;
-    const block_entry_t *e2 = b;
-    if (e1->ip_min < e2->ip_min) return -1;
-    if (e1->ip_min > e2->ip_min) return 1;
-    return 0;
-}
-
-static int
-block_key_compare(const void *a, const void *b)
-{
-    const block_entry_t *key = a;
-    const block_entry_t *entry = b;
-    if (key->ip_max < entry->ip_min) return -1;
-    if (key->ip_min > entry->ip_max) return 1;
-    return 0;
-}
-
-static void
-blocklist_sort()
-{
-    qsort(blocklist, blocklist_count, sizeof(block_entry_t), block_entry_compare);
-}
-
-static void
-blocklist_trim()
-{
-    int i, j, k, merged = 0;
-
-    /* pessimistic, will be reallocated later */
-    blocklist_merged = (block_sub_entry_t *)malloc(blocklist_count * sizeof(block_sub_entry_t));
-    blocklist_merged_count = 0;
-
-    for (i = 0; i < blocklist_count; i++) {
-        uint32_t ip_max;
-        ip_max = blocklist[i].ip_max;
-        /* Look if the following entries can be merged with the
-         * current one */
-        for (j = i + 1; j < blocklist_count; j++) {
-            if (blocklist[j].ip_min > ip_max + 1)
-                break;
-            if (blocklist[j].ip_max > ip_max)
-                ip_max = blocklist[j].ip_max;
-        }
-        if (j > i + 1) {
-            char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
-            char *tmp = malloc(32 * (j - i + 1) + 1);
-            /* List the merged entries */
-            tmp[0] = 0;
-            for (k = i; k < j; k++) {
-                char tmp2[33];
-                ip2str(buf1, blocklist[k].ip_min);
-                ip2str(buf2, blocklist[k].ip_max);
-                sprintf(tmp2, "%s-%s ", buf1, buf2);
-                strcat(tmp, tmp2);
-            }
-            ip2str(buf1, blocklist[i].ip_min);
-            ip2str(buf2, ip_max);
-            do_log(LOG_DEBUG, "Merging ranges: %sinto %s-%s", tmp, buf1, buf2);
-            free(tmp);
-
-            /* Copy the sub-entries and mark the unneeded entries */
-            blocklist[i].merged_idx = blocklist_merged_count;
-            for (k = i; k < j; k++) {
-                blocklist_merged[blocklist_merged_count].ip_min = blocklist[k].ip_min;
-                blocklist_merged[blocklist_merged_count].ip_max = blocklist[k].ip_max;
-                blocklist_merged[blocklist_merged_count].name = blocklist[k].name;
-                blocklist_merged_count++;
-                if (k > i) blocklist[k].hits = -1;
-            }
-            /* Extend the range */
-            blocklist[i].ip_max = ip_max;
-            blocklist[i].name = 0;
-            merged += j - i - 1;
-            i = j - 1;
-        }
-    }
-
-    /* Squish the list */
-    if (merged) {
-        for (i = 0, j = 0; i < blocklist_count; i++) {
-            if (blocklist[i].hits >= 0) {
-                if (i != j)
-                    memcpy(blocklist + j, blocklist + i, sizeof(block_entry_t));
-                j++;
-            }
-        }
-        blocklist_count -= merged;
-        do_log(LOG_DEBUG, "%d entries merged", merged);
-    }
-
-
-    blocklist = realloc(blocklist, blocklist_count * sizeof(block_entry_t));
-    blocklist_merged = (block_sub_entry_t *)realloc(blocklist_merged, blocklist_merged_count * sizeof(block_sub_entry_t));
-}
-
-static void
-blocklist_stats()
-{
-    int i, total = 0;
-
-    do_log(LOG_INFO, "Blocker hit statistic:");
-    for (i = 0; i < blocklist_count; i++) {
-        if (blocklist[i].hits > 0) {
-            char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
-            ip2str(buf1, blocklist[i].ip_min);
-            ip2str(buf2, blocklist[i].ip_max);
-            do_log(LOG_INFO, "%s - %s-%s: %d", blocklist[i].name,
-                   buf1, buf2, blocklist[i].hits);
-            total += blocklist[i].hits;
-        }
-    }
-    do_log(LOG_INFO, "%d hits total", total);
-}
-
-static block_entry_t *
-blocklist_find(uint32_t ip, block_sub_entry_t **sub, int max)
-{
-    block_entry_t e;
-    block_entry_t *ret;
-    int i, cnt;
-
-    e.ip_min = e.ip_max = ip;
-    ret = bsearch(&e, blocklist, blocklist_count, sizeof(block_entry_t), block_key_compare);
-
-    if (!ret || !sub)
-        // entry not found
-        return ret;
-
-    if (ret->name) {
-        // entry found, no subentries
-        sub[0] = (block_sub_entry_t *)ret;
-        sub[1] = 0;
-        return ret;
-    }
-
-    // scan the subentries
-    cnt = 0;
-    for (i = ret->merged_idx; i < blocklist_merged_count; i++) {
-        block_sub_entry_t * e = &blocklist_merged[i];
-        if (cnt <= max)
-            break;
-        if (e->ip_min <= ip && e->ip_max >= ip)
-            sub[cnt++] = e;
-    }
-    sub[cnt] = 0;
-    return ret;
-}
-
-/*
-static void
-blocklist_dump()
-{
-    int i;
-
-    for (i = 0; i < blocklist_count; i++) {
-        char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
-        ip2str(buf1, blocklist[i].ip_min);
-        ip2str(buf2, blocklist[i].ip_max);
-        printf("%d - %s-%s - %s\n", i, buf1, buf2, blocklist[i].name);
-    }
-}
-*/
-
-static void
-strip_crlf(char *str)
-{
-    while (*str) {
-        if (*str == '\r' || *str == '\n') {
-            *str = 0;
-            break;
-        }
-        str++;
-    }
-}
-
-static inline uint32_t
-assemble_ip(int i[4])
-{
-    return (i[0] << 24) + (i[1] << 16) + (i[2] << 8) + i[3];
-}
-
-typedef struct
-{
-    int compressed;
-    FILE *f;
-    int eos;
-    z_stream strm;
-    unsigned char in[CHUNK];
-    unsigned char out[CHUNK];
-} stream_t;
-
-static int
-stream_open(stream_t *stream, const char *filename)
-{
-    int l = strlen(filename);
-    if (l >= 3 && strcmp(filename + l - 3, ".gz") == 0) {
-        stream->f = fopen(filename, "r");
-        if (!stream->f)
-            return -1;
-        stream->compressed = 1;
-        stream->strm.zalloc = Z_NULL;
-        stream->strm.zfree = Z_NULL;
-        stream->strm.opaque = Z_NULL;
-        stream->strm.avail_in = 0;
-        stream->strm.next_in = Z_NULL;
-        if (inflateInit2(&stream->strm, 47) != Z_OK)
-            return -1;
-        stream->strm.avail_out = CHUNK;
-        stream->strm.next_out = stream->out;
-        stream->eos = 0;
-    } else {
-        stream->compressed = 0;
-        stream->f = fopen(filename, "r");
-        if (!stream->f)
-            return -1;
-    }
-    return 0;
-}
-
-static int
-stream_close(stream_t *stream)
-{
-    if (stream->compressed) {
-        if (!stream->eos)
-            inflateEnd(&stream->strm);
-        if (fclose(stream->f) < 0)
-            return -1;
-    } else {
-        if (fclose(stream->f) < 0)
-            return -1;
-    }
-    return 0;
-}
-
-static char *
-stream_getline(char *buf, int max, stream_t *stream)
-{
-    if (stream->compressed) {
-        int ret, avail;
-        unsigned char *ptr;
-        if (!stream->eos && stream->strm.avail_out) {
-            do {
-                if (stream->strm.avail_in == 0) {
-                    stream->strm.avail_in = fread(stream->in, 1, CHUNK, stream->f);
-                    if (stream->strm.avail_in == 0) {
-                        stream->eos = 1;
-                        inflateEnd(&stream->strm);
-                        break;
-                    }
-                    stream->strm.next_in = stream->in;
-                }
-
-                ret = inflate(&stream->strm, Z_NO_FLUSH);
-                switch (ret) {
-                case Z_STREAM_END:
-                    stream->eos = 1;
-                    inflateEnd(&stream->strm);
-                    goto out;
-                case Z_NEED_DICT:
-                    ret = Z_DATA_ERROR;     /* and fall through */
-                case Z_DATA_ERROR:
-                case Z_MEM_ERROR:
-                    stream->eos = 1;
-                    inflateEnd(&stream->strm);
-                    goto out;
-                default:
-                    break;
-                }
-            } while (stream->strm.avail_out);
-        }
-
-    out:
-
-        avail = CHUNK - stream->strm.avail_out;
-        ptr = memchr(stream->out, '\n', avail);
-        // handle lines is longer than the maximum
-        if (!ptr && avail > max - 1)
-            ptr = stream->out + max - 1;
-        // handle missing LF at the end of file
-        if (!ptr && avail && stream->eos)
-            ptr = stream->out + avail - 1;
-        // now, ptr should point to the last character copied, if there is any
-        if (ptr) {
-            int copied = ptr - stream->out + 1;
-            if (copied >= max - 1)
-                copied = max - 1;
-            memcpy(buf, stream->out, copied);
-            buf[copied] = 0;
-
-            memmove(stream->out, stream->out + copied, avail - copied);
-            stream->strm.avail_out += copied;
-            stream->strm.next_out -= copied;
-            return buf;
-        }
-        return NULL;
-    } else {
-        return fgets(buf, max, stream->f);
-    }
-}
-
-static int
-loadlist_dat(const char *filename, const char *charset)
-{
-    stream_t s;
-    char buf[MAX_LABEL_LENGTH], name[MAX_LABEL_LENGTH];
-    int n, ip1[4], ip2[4], dummy;
-    int total, ok;
-    int ret = -1;
-    iconv_t ic;
-    
-    if (stream_open(&s, filename) < 0) {
-        do_log(LOG_INFO, "Error opening %s.", filename);
-        return -1;
-    }
-
-    ic = iconv_open("UTF-8", charset);
-    if (ic < 0) {
-        do_log(LOG_INFO, "Cannot initialize charset conversion: %s", strerror(errno));
-        goto err;
-    }
-
-    total = ok = 0;
-    while (stream_getline(buf, MAX_LABEL_LENGTH, &s)) {
-        if (buf[0] == '#')
-            continue;
-
-        strip_crlf(buf);
-        total++;
-        if (ok == 0 && total > 100) {
-            stream_close(&s);
-            goto err;
-        }
-
-        memset(name, 0, sizeof(name));
-        n = sscanf(buf, "%d.%d.%d.%d - %d.%d.%d.%d , %d , %199c",
-                   &ip1[0], &ip1[1], &ip1[2], &ip1[3],
-                   &ip2[0], &ip2[1], &ip2[2], &ip2[3],
-                   &dummy, name);
-        if (n != 10) continue;
-        blocklist_append(assemble_ip(ip1), assemble_ip(ip2), name, ic);
-        ok++;
-    }
-    stream_close(&s);
-
-    if (ok == 0) goto err;
-
-    ret = 0;
-
-err:
-    if (ic)
-        iconv_close(ic);
-
-    return ret;
-}
-
-static int
-loadlist_p2p(const char *filename, const char *charset)
-{
-    stream_t s;
-    char buf[MAX_LABEL_LENGTH], name[MAX_LABEL_LENGTH];
-    int n, ip1[4], ip2[4];
-    int total, ok;
-    int ret = -1;
-    iconv_t ic;
-
-    if (stream_open(&s, filename) < 0) {
-        do_log(LOG_INFO, "Error opening %s.", filename);
-        return -1;
-    }
-
-    ic = iconv_open("UTF-8", charset);
-    if (ic < 0) {
-        do_log(LOG_INFO, "Cannot initialize charset conversion: %s", strerror(errno));
-        goto err;
-    }
-
-    total = ok = 0;
-    while (stream_getline(buf, MAX_LABEL_LENGTH, &s)) {
-        strip_crlf(buf);
-        total++;
-        if (ok == 0 && total > 100) {
-            stream_close(&s);
-            goto err;
-        }
-
-        memset(name, 0, sizeof(name));
-        n = sscanf(buf, "%199[^:]:%d.%d.%d.%d-%d.%d.%d.%d",
-                   name,
-                   &ip1[0], &ip1[1], &ip1[2], &ip1[3],
-                   &ip2[0], &ip2[1], &ip2[2], &ip2[3]);
-        if (n != 9) continue;
-
-        blocklist_append(assemble_ip(ip1), assemble_ip(ip2), name, ic);
-        ok++;
-    }
-    stream_close(&s);
-
-    if (ok == 0) goto err;
-
-    ret = 0;
-
-err:
-    if (ic)
-        iconv_close(ic);
-
-    return ret;
-}
-
-static int
-read_cstr(char *buf, int maxsize, FILE *f)
-{
-    int c, n = 0;
-    for (;;) {
-        c = fgetc(f);
-        if (c < 0) {
-            buf[n++] = 0;
-            return -1;
-        }
-        buf[n++] = c;
-        if (c == 0)
-            break;
-        if (n == maxsize)
-            return n + 1;
-    }
-    return n;
-}
-
-static int
-loadlist_p2b(const char *filename)
-{
-    FILE *f;
-    uint8_t header[8];
-    int version, n, i, nlabels = 0;
-    uint32_t cnt, ip1, ip2, idx;
-    char **labels = NULL;
-    int ret = -1;
-    iconv_t ic = (iconv_t) -1;
-
-    f = fopen(filename, "r");
-    if (!f) {
-        do_log(LOG_INFO, "Error opening %s.", filename);
-        return -1;
-    }
-
-    n = fread(header, 1, 8, f);
-    if (n != 8)
-        goto err;
-
-    if (header[0] != 0xff
-        || header[1] != 0xff
-        || header[2] != 0xff
-        || header[3] != 0xff
-        || header[4] != 'P'
-        || header[5] != '2'
-        || header[6] != 'B')
-    {
-        goto err;
-    }
-
-    version = header[7];
-
-    switch (version) {
-    case 1:
-        ic = iconv_open("UTF-8", "ISO8859-1");
-        break;
-    case 2:
-    case 3:
-        ic = iconv_open("UTF-8", "UTF-8");
-        break;
-    default:
-        do_log(LOG_INFO, "Unknown P2B version: %d", version);
-        goto err;
-    }
-
-    if (ic < 0) {
-        do_log(LOG_INFO, "Cannot initialize charset conversion: %s", strerror(errno));
-        goto err;
-    }
-
-    switch (version) {
-    case 1:
-    case 2:
-        for (;;) {
-            char buf[MAX_LABEL_LENGTH];
-            uint32_t ip1, ip2;
-            n = read_cstr(buf, MAX_LABEL_LENGTH, f);
-            if (n < 0 || n > MAX_LABEL_LENGTH) {
-                do_log(LOG_ERR, "P2B: Error reading label");
-                break;
-            }
-            n = fread(&ip1, 1, 4, f);
-            if (n != 4) {
-                do_log(LOG_ERR, "P2B: Error reading range start");
-                break;
-            }
-            n = fread(&ip2, 1, 4, f);
-            if (n != 4) {
-                do_log(LOG_ERR, "P2B: Error reading range end");
-                break;
-            }
-            blocklist_append(ntohl(ip1), ntohl(ip2), buf, ic);
-        }
-        break;
-    case 3:
-        n = fread(&cnt, 1, 4, f);
-        if (n != 4)
-            goto err;
-        nlabels = ntohl(cnt);
-        labels = (char**)malloc(sizeof(char*) * nlabels);
-        if (!labels)
-            goto err;
-        for (i = 0; i < nlabels; i++)
-            labels[i] = NULL;
-        for (i = 0; i < nlabels; i++) {
-            char buf[MAX_LABEL_LENGTH];
-            n = read_cstr(buf, MAX_LABEL_LENGTH, f);
-            if (n < 0 || n > MAX_LABEL_LENGTH) {
-                do_log(LOG_ERR, "P2B3: Error reading label");
-                goto err;
-            }
-            labels[i] = strdup(buf);
-        }
-
-        n = fread(&cnt, 1, 4, f);
-        if (n != 4)
-            break;
-        cnt = ntohl(cnt);
-        for (i = 0; i < cnt; i++) {
-            n = fread(&idx, 1, 4, f);
-            if (n != 4 || ntohl(idx) > nlabels) {
-                do_log(LOG_ERR, "P2B3: Error reading label index");
-                goto err;
-            }
-            n = fread(&ip1, 1, 4, f);
-            if (n != 4) {
-                do_log(LOG_ERR, "P2B3: Error reading range start");
-                goto err;
-            }
-            n = fread(&ip2, 1, 4, f);
-            if (n != 4) {
-                do_log(LOG_ERR, "P2B3: Error reading range end");
-                goto err;
-            }
-            blocklist_append(ntohl(ip1), ntohl(ip2), labels[ntohl(idx)], ic);
-        }
-        break;
-    }
-
-    ret = 0;
-
-err:
-    if (labels) {
-        for (i = 0; i < nlabels; i++)
-            if (labels[i])
-                free(labels[i]);
-        free(labels);
-    }
-    fclose(f);
-    if (ic)
-        iconv_close(ic);
-    return ret;
-}
-
-static int
-load_list(const char *filename, const char *charset)
-{
-    int prevcount;
-
-    prevcount = blocklist_count;
-    if (loadlist_p2b(filename) == 0) {
-        do_log(LOG_DEBUG, "PeerGuardian Binary: %d entries loaded", blocklist_count - prevcount);
-        return 0;
-    }
-    blocklist_clear(prevcount);
-
-    prevcount = blocklist_count;
-    if (loadlist_dat(filename, charset ? charset : "ISO8859-1") == 0) {
-        do_log(LOG_DEBUG, "IPFilter: %d entries loaded", blocklist_count - prevcount);
-        return 0;
-    }
-    blocklist_clear(prevcount);
-
-    prevcount = blocklist_count;
-    if (loadlist_p2p(filename, charset ? charset : "ISO8859-1") == 0) {
-        do_log(LOG_DEBUG, "PeerGuardian Ascii: %d entries loaded", blocklist_count - prevcount);
-        return 0;
-    }
-    blocklist_clear(prevcount);
-
-    return -1;
-}
 
 static int
 load_all_lists()
 {
     int i, ret = 0;
 
-    blocklist_clear(0);
+    blocklist_clear(&blocklist, 0);
     for (i = 0; i < blockfile_count; i++) {
-        if (load_list(blocklist_filenames[i], blocklist_charsets[i])) {
+        if (load_list(&blocklist, blocklist_filenames[i], blocklist_charsets[i])) {
             do_log(LOG_ERR, "Error loading %s", blocklist_filenames[i]);
             ret = -1;
         }
     }
-    blocklist_sort();
-    blocklist_trim();
+    blocklist_sort(&blocklist);
+    blocklist_trim(&blocklist);
     return ret;
 }
 
@@ -904,7 +220,12 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     block_entry_t *src, *dst;
     uint32_t ip_src, ip_dst;
     char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
+#ifndef LOWMEM
     block_sub_entry_t *sranges[MAX_RANGES + 1], *dranges[MAX_RANGES + 1];
+#else
+    /* dummy variables */
+    static void *sranges = 0, *dranges = 0;
+#endif
 
     ph = nfq_get_msg_packet_hdr(nfa);
     if (ph) {
@@ -914,7 +235,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
         switch (ph->hook) {
         case NF_IP_LOCAL_IN:
             ip_src = ntohl(SRC_ADDR(payload));
-            src = blocklist_find(ip_src, sranges, MAX_RANGES);
+            src = blocklist_find(&blocklist, ip_src, sranges, MAX_RANGES);
             if (src) {
                 // we drop the packet instead of rejecting
                 // we don't want the other host to know we are alive
@@ -933,8 +254,13 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 #endif
                     if (use_syslog) {
                         ip2str(buf1, ntohl(SRC_ADDR(payload)));
+#ifndef LOWMEM
                         do_log(LOG_NOTICE, "Blocked IN: %s, hits: %d, SRC: %s",
-                                        sranges[0]->name, src->hits, buf1);
+			       sranges[0]->name, src->hits, buf1);
+#else
+                        do_log(LOG_NOTICE, "Blocked IN: hits: %d, SRC: %s",
+			       src->hits, buf1);
+#endif
                     }
                 }
                 src->lasttime = curtime;
@@ -949,7 +275,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
             break;
         case NF_IP_LOCAL_OUT:
             ip_dst = ntohl(DST_ADDR(payload));
-            dst = blocklist_find(ip_dst, dranges, MAX_RANGES);
+            dst = blocklist_find(&blocklist, ip_dst, dranges, MAX_RANGES);
             if (dst) {
                 if (likely(reject_mark)) {
                     // we set the user-defined reject_mark and set NF_REPEAT verdict
@@ -972,8 +298,13 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                     }
 #endif
                     if (use_syslog) {
+#ifndef LOWMEM
                         do_log(LOG_NOTICE, "Blocked OUT: %s, hits: %d, DST: %s",
                                         dranges[0]->name, dst->hits, buf1);
+#else
+                        do_log(LOG_NOTICE, "Blocked OUT: %s, hits: %d, DST: %s",
+			       dst->hits, buf1);
+#endif
                     }
                 }
                 dst->lasttime = curtime;
@@ -989,8 +320,8 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
         case NF_IP_FORWARD:
             ip_src = ntohl(SRC_ADDR(payload));
             ip_dst = ntohl(DST_ADDR(payload));
-            src = blocklist_find(ip_src, sranges, MAX_RANGES);
-            dst = blocklist_find(ip_dst, dranges, MAX_RANGES);
+            src = blocklist_find(&blocklist, ip_src, sranges, MAX_RANGES);
+            dst = blocklist_find(&blocklist, ip_dst, dranges, MAX_RANGES);
             if (dst || src) {
                 int lasttime = 0;
                 if (likely(reject_mark)) {
@@ -1028,9 +359,14 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                     if (use_syslog) {
                         ip2str(buf1, ntohl(SRC_ADDR(payload)));
                         ip2str(buf2, ntohl(DST_ADDR(payload)));
+#ifndef LOWMEM
                         do_log(LOG_NOTICE, "Blocked FWD: %s->%s, hits: %d,%d, SRC: %s, DST: %s",
                                         src ? sranges[0]->name : "(unknown)", dst ? dranges[0]->name : "(unknown)",
                                         src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
+#else
+                        do_log(LOG_NOTICE, "Blocked FWD: hits: %d,%d, SRC: %s, DST: %s",
+			       src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
+#endif
                     }
                 }
             } else if ( unlikely(accept_mark) ) {
@@ -1114,10 +450,10 @@ nfqueue_loop ()
         if (unlikely (command != CMD_NONE)) {
             switch (command) {
             case CMD_DUMPSTATS:
-                blocklist_stats();
+                blocklist_stats(&blocklist);
                 break;
             case CMD_RELOAD:
-                blocklist_stats();
+                blocklist_stats(&blocklist);
                 if (load_all_lists() < 0)
                     do_log(LOG_ERR, "Cannot load the blocklist");
                 break;
@@ -1246,7 +582,7 @@ ustime()
 #if RAND_MAX < 65536
 #error RAND_MAX needs to be at least 2^16
 #endif
-#define ITER 10000000
+#define ITER 1000000000
 static void
 do_benchmark()
 {
@@ -1257,7 +593,7 @@ do_benchmark()
     for (i = 0; i < ITER; i++) {
         uint32_t ip;
         ip = (uint32_t)random() ^ ((uint32_t)random() << 16);
-        blocklist_find(ip, 0, 0);
+        blocklist_find(&blocklist, ip, 0, 0);
     }
     end = ustime();
 
@@ -1303,8 +639,8 @@ add_blocklist(const char *name, const char *charset)
 {
     blocklist_filenames = (const char**)realloc(blocklist_filenames, sizeof(const char*) * (blockfile_count + 1));
     blocklist_charsets = (const char**)realloc(blocklist_charsets, sizeof(const char*) * (blockfile_count + 1));
-    blocklist_filenames[blocklist_count] = name;
-    blocklist_charsets[blocklist_count] = charset;
+    blocklist_filenames[blockfile_count] = name;
+    blocklist_charsets[blockfile_count] = charset;
     blockfile_count++;
 }
 
@@ -1366,6 +702,8 @@ main(int argc, char *argv[])
         exit(1);
     }
 
+    blocklist_init(&blocklist);
+
     if (load_all_lists() < 0) {
         do_log(LOG_ERR, "Cannot load the blocklist");
         return -1;
@@ -1405,9 +743,9 @@ main(int argc, char *argv[])
         return -1;
 
     do_log(LOG_INFO, "Started");
-    do_log(LOG_INFO, "Blocklist has %d entries", blocklist_count);
+    do_log(LOG_INFO, "Blocklist has %d entries", blocklist.count);
     nfqueue_loop();
-    blocklist_stats();
+    blocklist_stats(&blocklist);
 
     if (opt_daemon) {
         closelog();
@@ -1420,7 +758,7 @@ out:
         close_dbus();
 #endif
 
-    blocklist_clear(0);
+    blocklist_clear(&blocklist, 0);
     free(blocklist_filenames);
     free(blocklist_charsets);
 

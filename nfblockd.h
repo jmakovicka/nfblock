@@ -23,11 +23,21 @@
    Boston, MA 02110-1301, USA.
 */
 
+#ifndef NFBLOCKD_H
+#define NFBLOCKD_H
+
 typedef enum {
     LOG_NF_IN,
     LOG_NF_OUT,
     LOG_NF_FWD,
 } dbus_log_message_t;
 
+#define IP_STRING_SIZE 16
+
 typedef void (*log_func_t) (int priority, const char *format, ...);
 
+void do_log(int priority, const char *format, ...);
+
+void ip2str(char *dst, uint32_t ip);
+
+#endif

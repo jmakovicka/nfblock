@@ -1,9 +1,13 @@
 PKGNAME = nfblockd
 VERSION = 0.6
 
-#PROFILE = yes
+#PROFILE ?= yes
 
-DBUS=yes
+#DEBUG ?= yes
+
+DBUS ?= yes
+ZLIB ?= yes
+#LOWMEM ?= yes
 
 ifeq ($(INSTALLROOT),)
 INSTALLROOT = /usr/local
@@ -12,28 +16,48 @@ ifeq ($(DBUSROOT),)
 DBUSROOT = /
 endif
 
+OBJS=nfblockd.o stream.o blocklist.o blockload.o
 OPTFLAGS=-Os
 CFLAGS=-Wall $(OPTFLAGS) -ffast-math -DVERSION=\"$(VERSION)\" -DROOT=\"$(INSTALLROOT)\"
 LDFLAGS=-lnetfilter_queue -lnfnetlink -lz
 CC=gcc
+
+ifeq ($(LOWMEM),yes)
+DBUS=no
+CFLAGS+=-DLOWMEM
+endif
+
+ifeq ($(ZLIB),yes)
+CFLAGS+=-DHAVE_ZLIB
+LDFLAGS+=-lz
+endif
 
 ifeq ($(DBUS),yes)
 CFLAGS+=-DHAVE_DBUS `pkg-config dbus-1 --cflags`
 LDFLAGS+=-ldl
 endif
 
-ifneq ($(PROFILE),)
+ifeq ($(PROFILE),yes)
 CFLAGS+=-pg
 LDFLAGS+=-pg
 else
+ifeq ($(DEBUG),yes)
+CFLAGS+=-ggdb3
+LDFLAGS+=-ggdb3
+else
 CFLAGS+=-fomit-frame-pointer
 LDFLAGS+=-s
+endif
 endif
 
 DISTDIR = $(PKGNAME)-$(VERSION)
 
 DISTFILES = \
-	Makefile nfblockd.c nfblockd.h dbus.c dbus.h \
+	Makefile nfblockd.c nfblockd.h \
+	blocklist.c blocklist.h \
+	blockload.c blockload.h \
+	stream.c stream.h \
+	dbus.c dbus.h \
 	dbus-nfblockd.conf ChangeLog README \
 	debian/changelog debian/control debian/copyright \
 	debian/cron.daily debian/default debian/init.d \
@@ -48,13 +72,13 @@ endif
 .c.o:
 	$(CC) $(CFLAGS) -c $<
 
-nfblockd: nfblockd.o
+nfblockd: $(OBJS)
 	gcc -o nfblockd $(LDFLAGS) $^
 
 dbus.so: dbus.o
 	$(CC) -shared -Wl `pkg-config dbus-1 --libs` -o dbus.so dbus.o
 clean:
-	rm -f *.o *~ nfblockd
+	rm -f *.o *~ nfblockd dbus.so
 
 install:
 	install -D -m 755 nfblockd $(INSTALLROOT)/sbin/nfblockd

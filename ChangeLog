@@ -1,3 +1,13 @@
+2008-09-06  Jindrich Makovicka  <makovick@gmail.com>
+
+	Modularize the source code
+	
+	Make zlib support optional
+	
+	Low memory compilation flag for embedded devices
+	
+	Character set conversion
+
 2008-07-13  Jindrich Makovicka  <makovick@gmail.com>
 
 	* dbus.c: Add D-Bus support
@@ -5,7 +15,9 @@
 2008-05-31  Jindrich Makovicka  <makovick@gmail.com>
 
 	* nfblockd.c: Pidfile support
+
 	Ignore duplicate range names on merging
+
 	Benchmarking
 
 2008-04-15  Jindrich Makovicka  <makovick@gmail.com>
@@ -15,21 +27,21 @@
 
 2007-08-30  Jindrich Makovicka  <makovick@gmail.com>
 
-	* Release 0.3
+	Release 0.3
 
-	* Multiple blocklists support
+	Multiple blocklists support
 
-	* Blocklist loading fixes
+	Blocklist loading fixes
 
 2007-08-25  Jindrich Makovicka  <makovick@gmail.com>
 
-	* Release 0.2
+	Release 0.2
 	
 	* nfblockd.c: Reduce startup verbosity
 
-	* More Debian related stuff - Pre/Postinst, cron, init.d
+	More Debian related stuff - Pre/Postinst, cron, init.d
 	
 2007-08-12  Jindrich Makovicka  <makovick@gmail.com>
 
-	* Initial release 0.1
+	Initial release 0.1
 
