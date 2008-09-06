@@ -606,7 +606,9 @@ print_usage()
     fprintf(stderr, "nfblockd " VERSION " (c) 2008 Jindrich Makovicka\n");
     fprintf(stderr, "Syntax: nfblockd -d [-a MARK] [-r MARK] [-q 0-65535] BLOCKLIST...\n\n");
     fprintf(stderr, "        -d            Run as daemon\n");
+#ifndef LOWMEM
     fprintf(stderr, "        -c            Blocklist file charset (for all following filenames)\n");
+#endif
     fprintf(stderr, "        -f            Blocklist file name\n");
     fprintf(stderr, "        -p NAME       Use a pidfile named NAME\n");
     fprintf(stderr, "        -v            Verbose output\n");
@@ -649,7 +651,11 @@ main(int argc, char *argv[])
 {
     int opt, i;
 
-    while ((opt = getopt(argc, argv, "q:a:r:dbp:f:c:v")) != -1) {
+    while ((opt = getopt(argc, argv, "q:a:r:dbp:f:v"
+#ifndef LOWMEM
+			 "c:"
+#endif
+		)) != -1) {
         switch (opt) {
         case 'd':
             opt_daemon = 1;
@@ -669,9 +675,11 @@ main(int argc, char *argv[])
         case 'p':
             pidfile_name = optarg;
             break;
+#ifndef LOWMEM
         case 'c':
             current_charset = optarg;
             break;
+#endif
         case 'f':
             add_blocklist(optarg, current_charset);
             break;
