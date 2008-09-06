@@ -50,6 +50,7 @@ blocklist_append(blocklist_t *blocklist,
     if (blocklist->size == blocklist->count) {
         blocklist->size += 16384;
         blocklist->entries = realloc(blocklist->entries, sizeof(block_entry_t) * blocklist->size);
+	CHECK_OOM(blocklist->entries);
     }
     e = blocklist->entries + blocklist->count;
     e->ip_min = ip_min;
@@ -112,6 +113,7 @@ blocklist_clear(blocklist_t *blocklist, int start)
         blocklist->size = blocklist->count = start;
         blocklist->entries = realloc(blocklist->entries,
 				     sizeof(block_entry_t) * blocklist->size);
+	CHECK_OOM(blocklist->entries);
     }
 }
 
@@ -149,6 +151,7 @@ blocklist_trim(blocklist_t *blocklist)
 #ifndef LOWMEM
     /* pessimistic, will be reallocated later */
     blocklist->subentries = (block_sub_entry_t *)malloc(blocklist->count * sizeof(block_sub_entry_t));
+    CHECK_OOM(blocklist->subentries);
     blocklist->subcount = 0;
 #endif
 
@@ -166,6 +169,7 @@ blocklist_trim(blocklist_t *blocklist)
         if (j > i + 1) {
             char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
             char *tmp = malloc(32 * (j - i + 1) + 1);
+	    CHECK_OOM(tmp);
             /* List the merged entries */
             tmp[0] = 0;
             for (k = i; k < j; k++) {
@@ -217,7 +221,9 @@ blocklist_trim(blocklist_t *blocklist)
 
 #ifndef LOWMEM
     blocklist->entries = realloc(blocklist->entries, blocklist->count * sizeof(block_entry_t));
+    CHECK_OOM(blocklist->entries);
     blocklist->subentries = (block_sub_entry_t *)realloc(blocklist->subentries, blocklist->subcount * sizeof(block_sub_entry_t));
+    CHECK_OOM(blocklist->subentries);
 #endif
 }
 

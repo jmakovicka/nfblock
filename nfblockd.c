@@ -640,7 +640,9 @@ void
 add_blocklist(const char *name, const char *charset)
 {
     blocklist_filenames = (const char**)realloc(blocklist_filenames, sizeof(const char*) * (blockfile_count + 1));
+    CHECK_OOM(blocklist_filenames);
     blocklist_charsets = (const char**)realloc(blocklist_charsets, sizeof(const char*) * (blockfile_count + 1));
+    CHECK_OOM(blocklist_charsets);
     blocklist_filenames[blockfile_count] = name;
     blocklist_charsets[blockfile_count] = charset;
     blockfile_count++;

@@ -26,6 +26,8 @@
 #ifndef NFBLOCKD_H
 #define NFBLOCKD_H
 
+#include <stdlib.h>
+
 typedef enum {
     LOG_NF_IN,
     LOG_NF_OUT,
@@ -39,5 +41,13 @@ typedef void (*log_func_t) (int priority, const char *format, ...);
 void do_log(int priority, const char *format, ...);
 
 void ip2str(char *dst, uint32_t ip);
+
+#define CHECK_OOM(ptr)					\
+    do {						\
+	if (!ptr) {					\
+	    do_log(LOG_CRIT, "Out of memory");		\
+	    exit (-1);					\
+	}						\
+    } while(0);						\
 
 #endif
