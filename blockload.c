@@ -182,7 +182,9 @@ loadlist_p2b(blocklist_t *blocklist, const char *filename)
     uint8_t header[8];
     int version, n, i, nlabels = 0;
     uint32_t cnt, ip1, ip2, idx;
+#ifndef LOWMEM
     char **labels = NULL;
+#endif
     int ret = -1;
     iconv_t ic = (iconv_t) -1;
 
@@ -256,11 +258,15 @@ loadlist_p2b(blocklist_t *blocklist, const char *filename)
         if (n != 4)
             goto err;
         nlabels = ntohl(cnt);
+#ifndef LOWMEM
         labels = (char**)malloc(sizeof(char*) * nlabels);
-        if (!labels)
+        if (!labels) {
+	    do_log(LOG_ERR, "P2B: Out of memory");
             goto err;
+	}
         for (i = 0; i < nlabels; i++)
             labels[i] = NULL;
+#endif
         for (i = 0; i < nlabels; i++) {
             char buf[MAX_LABEL_LENGTH];
             n = read_cstr(buf, MAX_LABEL_LENGTH, f);
@@ -268,7 +274,9 @@ loadlist_p2b(blocklist_t *blocklist, const char *filename)
                 do_log(LOG_ERR, "P2B3: Error reading label");
                 goto err;
             }
+#ifndef LOWMEM
             labels[i] = strdup(buf);
+#endif
         }
 
         n = fread(&cnt, 1, 4, f);
@@ -291,7 +299,11 @@ loadlist_p2b(blocklist_t *blocklist, const char *filename)
                 do_log(LOG_ERR, "P2B3: Error reading range end");
                 goto err;
             }
+#ifndef LOWMEM
             blocklist_append(blocklist, ntohl(ip1), ntohl(ip2), labels[ntohl(idx)], ic);
+#else
+            blocklist_append(blocklist, ntohl(ip1), ntohl(ip2), NULL, ic);
+#endif
         }
         break;
     }
@@ -299,12 +311,14 @@ loadlist_p2b(blocklist_t *blocklist, const char *filename)
     ret = 0;
 
 err:
+#ifndef LOWMEM
     if (labels) {
         for (i = 0; i < nlabels; i++)
             if (labels[i])
                 free(labels[i]);
         free(labels);
     }
+#endif
     fclose(f);
     if (ic)
         iconv_close(ic);
