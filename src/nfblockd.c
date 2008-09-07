@@ -556,7 +556,7 @@ ustime()
 #if RAND_MAX < 65536
 #error RAND_MAX needs to be at least 2^16
 #endif
-#define ITER 1000000000
+#define ITER 10000000
 static void
 do_benchmark()
 {
