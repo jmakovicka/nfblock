@@ -24,38 +24,25 @@
    Boston, MA 02110-1301, USA.
 */
 
-#ifndef DBUS_H
-#define DBUS_H
+#ifndef NFBLOCKD_DBUS_H
+#define NFBLOCKD_DBUS_H
 
-#ifdef HAVE_DBUS
+/* nfblockd dbus protocol */
+#define NFBP_ACTION_MARK 'm'
+#define NFBP_ACTION_DROP 'd'
+#define NFBP_IPv4_BIN 0x0
 
-int nfblockd_dbus_init();
-
-int nfblockd_dbus_send_signal_nfq(int sigtype, int first_arg_type, ...);
-
-int nfblockd_dbus_done();
-
-#else
-
-static int nfblockd_dbus_init() { }
-
-static int nfblockd_dbus_send_signal_nfq(int sigtype, int first_arg_type, ...) { }
-
-static int nfblockd_dbus_done()
-{
-}
-
-#endif
-
-#define DBUS_TYPE_BYTE          ((int) 'y')
-#define DBUS_TYPE_UINT32        ((int) 'u')
-#define DBUS_TYPE_STRING        ((int) 's')
-#define DBUS_TYPE_INVALID       ((int) '\0')
+#define FMT_ADDR_NAME_HITS "anh"
+#define ADDR 'a'
+#define NAME 'n'
+#define HITS 'h'
 
 typedef enum {
     LOG_NF_IN,
     LOG_NF_OUT,
     LOG_NF_FWD,
 } dbus_log_message_t;
+
+typedef void (*log_func_t) (int priority, const char *format, ...);
 
 #endif

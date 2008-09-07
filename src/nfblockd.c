@@ -42,11 +42,16 @@
 #include <linux/netfilter_ipv4.h>
 #include <libnetfilter_queue/libnetfilter_queue.h>
 #include <poll.h>
+
+#ifdef HAVE_DBUS
 #include <dlfcn.h>
+#include <dbus/dbus.h>
+#endif
 
 #include "blocklist.h"
 #include "blockload.h"
 #include "nfblockd.h"
+#include "dbus.h"
 #include "stream.h"
 
 #define likely(x)       __builtin_expect((x),1)
@@ -108,30 +113,11 @@ noprint:
 
 #ifdef HAVE_DBUS
 
-#include <dbus/dbus.h>
-
 static int use_dbus = 1;
-
-static int __null_int = 0;
-static char *__null_str = "";
-
-/* nfblockd dbus protocol */
-#define NFBP_ACTION_MARK 'm'
-#define NDBP_ACTION_DROP 'd'
-
-#define HITS_EMPTY (&__null_int)
-#define NAME_EMPTY (&__null_str)
-
-static const char __action_mark = NFBP_ACTION_MARK;
-static const char __action_drop = NDBP_ACTION_DROP;
-
-#define NFBP_ACTION_MARK__BY_REF (&__action_mark)
-#define NFBP_ACTION_DROP__BY_REF (&__action_drop)
-
 static void *dbus_lh = NULL;
 
 int (*nfblockd_dbus_init) (log_func_t do_log);
-int (*nfblockd_dbus_send_signal_nfq) (log_func_t do_log, int sigtype, int first_arg_type, ...);
+int (*nfblockd_dbus_send_signal_nfq) (log_func_t do_log, int signal, char action, char *format, ...);
 
 #define do_dlsym(symbol)                                                \
     do {                                                                \
@@ -150,7 +136,7 @@ open_dbus()
 
     dbus_lh = dlopen(PLUGINDIR "/dbus.so", RTLD_NOW);
     if (!dbus_lh) {
-        do_log(LOG_ERR, "dlopen() failed");
+        do_log(LOG_ERR, "dlopen() failed: %s", dlerror());
         return -1;
     }
     dlerror(); // clear the error flag
@@ -244,16 +230,12 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 if (src->lasttime < curtime - MIN_INTERVAL) {
 #ifdef HAVE_DBUS
                     if (use_dbus) {
-                        nfblockd_dbus_send_signal_nfq(do_log, LOG_NF_IN, DBUS_TYPE_UINT32, &curtime, /* this is unsigned because we don't log events before the 'epoch' */
-                                                      DBUS_TYPE_BYTE, NFBP_ACTION_DROP__BY_REF,
-                                                      DBUS_TYPE_UINT32, &ip_src,
-                                                      DBUS_TYPE_STRING, &(sranges[0]->name),
-                                                      DBUS_TYPE_UINT32, &(src->hits),
-                                                      DBUS_TYPE_INVALID);
+                        nfblockd_dbus_send_signal_nfq(do_log, LOG_NF_IN, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
+                                                      FMT_ADDR_NAME_HITS, ip_src, sranges[0]->name, src->hits, (char *)NULL);
                     }
 #endif
                     if (use_syslog) {
-                        ip2str(buf1, ntohl(SRC_ADDR(payload)));
+                        ip2str(buf1, ip_src);
 #ifndef LOWMEM
                         do_log(LOG_NOTICE, "Blocked IN: %s, hits: %d, SRC: %s",
 			       sranges[0]->name, src->hits, buf1);
@@ -286,15 +268,11 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 }
                 dst->hits++;
                 if (dst->lasttime < curtime - MIN_INTERVAL) {
-                    ip2str(buf1, ntohl(DST_ADDR(payload)));
+                    ip2str(buf1, ip_dst);
 #ifdef HAVE_DBUS
                     if (use_dbus) {
-                        nfblockd_dbus_send_signal_nfq(do_log, LOG_NF_OUT, DBUS_TYPE_UINT32, &curtime,
-                                                      DBUS_TYPE_BYTE, reject_mark ? NFBP_ACTION_MARK__BY_REF : NFBP_ACTION_DROP__BY_REF,
-                                                      DBUS_TYPE_UINT32, &ip_dst,
-                                                      DBUS_TYPE_STRING, &(dranges[0]->name),
-                                                      DBUS_TYPE_UINT32, &(dst->hits),
-                                                      DBUS_TYPE_INVALID);
+                        nfblockd_dbus_send_signal_nfq(do_log, LOG_NF_OUT, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
+                                                      FMT_ADDR_NAME_HITS, ip_dst, dranges[0]->name, dst->hits, (char *)NULL);
                     }
 #endif
                     if (use_syslog) {
@@ -345,20 +323,16 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 if (lasttime < curtime - MIN_INTERVAL) {
 #ifdef HAVE_DBUS
                     if (use_dbus) {
-                        nfblockd_dbus_send_signal_nfq(do_log, LOG_NF_FWD, DBUS_TYPE_UINT32, &curtime,
-                                                      DBUS_TYPE_BYTE, reject_mark ? NFBP_ACTION_MARK__BY_REF : NFBP_ACTION_DROP__BY_REF,
-                                                      DBUS_TYPE_UINT32, &ip_src,
-                                                      DBUS_TYPE_STRING, src ? &(sranges[0]->name) : NAME_EMPTY,
-                                                      DBUS_TYPE_UINT32, src ? &(src->hits) : HITS_EMPTY,
-                                                      DBUS_TYPE_UINT32, &ip_dst,
-                                                      DBUS_TYPE_STRING, dst ? &(dranges[0]->name) : NAME_EMPTY,
-                                                      DBUS_TYPE_UINT32, dst ? &(dst->hits) : HITS_EMPTY,
-                                                      DBUS_TYPE_INVALID);
+                        nfblockd_dbus_send_signal_nfq(do_log, LOG_NF_FWD, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
+                                                      FMT_ADDR_NAME_HITS, ip_src, src ? src->name : "", src ? src->hits : 0,
+                                                      FMT_ADDR_NAME_HITS, ip_dst, dst ? dst->name : "", dst ? dst->hits : 0,
+                                                      (char *)NULL);
+
                     }
 #endif
                     if (use_syslog) {
-                        ip2str(buf1, ntohl(SRC_ADDR(payload)));
-                        ip2str(buf2, ntohl(DST_ADDR(payload)));
+                        ip2str(buf1, ip_src);
+                        ip2str(buf2, ip_dst);
 #ifndef LOWMEM
                         do_log(LOG_NOTICE, "Blocked FWD: %s->%s, hits: %d,%d, SRC: %s, DST: %s",
                                         src ? sranges[0]->name : "(unknown)", dst ? dranges[0]->name : "(unknown)",
