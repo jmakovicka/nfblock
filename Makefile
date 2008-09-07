@@ -1,13 +1,25 @@
 PKGNAME = nfblockd
 VERSION = 0.6
 
-#PROFILE ?= yes
-
-#DEBUG ?= yes
+# Set DBUS to yes if you want to be able to use DBUS.
 
 DBUS ?= yes
+
+# Set ZLIB to yes if you want to be able to load compressed blocklists.
+
 ZLIB ?= yes
+
+# LOWMEM disables storing of textual range descriptions in RAM.
+# Set to yes if you are building a version for embedded devices
+# like router or NAS box.
+
 #LOWMEM ?= yes
+
+# Want to run gprof?
+#PROFILE ?= yes
+
+# Want to use gdb on the target binary?
+#DEBUG ?= yes
 
 prefix ?= /usr/local
 SBINDIR ?= $(prefix)/sbin
