@@ -9,16 +9,14 @@ DBUS ?= yes
 ZLIB ?= yes
 #LOWMEM ?= yes
 
-ifeq ($(INSTALLROOT),)
-INSTALLROOT = /usr/local
-endif
-ifeq ($(DBUSROOT),)
-DBUSROOT = /
-endif
+prefix ?= /usr/local
+SBINDIR ?= $(prefix)/sbin
+DBUSCONFDIR ?= $(prefix)/etc/dbus-1/system.d
+PLUGINDIR ?= $(prefix)/lib/nfblockd
 
-OBJS=nfblockd.o stream.o blocklist.o blockload.o
+OBJS=src/nfblockd.o src/stream.o src/blocklist.o src/blockload.o
 OPTFLAGS=-Os
-CFLAGS=-Wall $(OPTFLAGS) -ffast-math -DVERSION=\"$(VERSION)\" -DROOT=\"$(INSTALLROOT)\"
+CFLAGS=-Wall $(OPTFLAGS) -ffast-math -DVERSION=\"$(VERSION)\" -DPLUGINDIR=\"$(PLUGINDIR)\"
 LDFLAGS=-lnetfilter_queue -lnfnetlink -lz
 CC=gcc
 
@@ -33,7 +31,7 @@ LDFLAGS+=-lz
 endif
 
 ifeq ($(DBUS),yes)
-CFLAGS+=-DHAVE_DBUS `pkg-config dbus-1 --cflags`
+CFLAGS+=-DHAVE_DBUS `pkg-config dbus-1 --cflags` -fPIC
 LDFLAGS+=-ldl
 endif
 
@@ -53,37 +51,39 @@ endif
 DISTDIR = $(PKGNAME)-$(VERSION)
 
 DISTFILES = \
-	Makefile nfblockd.c nfblockd.h \
-	blocklist.c blocklist.h \
-	blockload.c blockload.h \
-	stream.c stream.h \
-	dbus.c dbus.h \
+	Makefile \
+	src/nfblockd.c src/nfblockd.h \
+	src/blocklist.c src/blocklist.h \
+	src/blockload.c src/blockload.h \
+	src/stream.c src/stream.h \
+	src/dbus.c src/dbus.h \
 	dbus-nfblockd.conf ChangeLog README \
 	debian/changelog debian/control debian/copyright \
 	debian/cron.daily debian/default debian/init.d \
 	debian/postinst debian/postrm debian/rules \
 
 ifeq ($(DBUS),yes)
-all: nfblockd dbus.so
+all: src/nfblockd src/dbus.so
 else
-all: nfblockd
+all: src/nfblockd
 endif
 
 .c.o:
-	$(CC) $(CFLAGS) -c $<
+	$(CC) $(CFLAGS) -o $@ -c $<
 
-nfblockd: $(OBJS)
-	gcc -o nfblockd $(LDFLAGS) $^
+src/nfblockd: $(OBJS)
+	echo $(OBJS)
+	gcc -o $@ $(LDFLAGS) $^
 
-dbus.so: dbus.o
-	$(CC) -shared -Wl `pkg-config dbus-1 --libs` -o dbus.so dbus.o
+src/dbus.so: src/dbus.o
+	$(CC) -shared -Wl `pkg-config dbus-1 --libs` -o $@ $^
 clean:
-	rm -f *.o *~ nfblockd dbus.so
+	rm -f *~ src/*.o src/*~ src/nfblockd src/dbus.so
 
 install:
-	install -D -m 755 nfblockd $(INSTALLROOT)/sbin/nfblockd
-	install -D -m 644 dbus-nfblockd.conf $(DBUSROOT)/etc/dbus-1/system.d/nfblockd.conf
-	install -D -m 644 dbus.so $(INSTALLROOT)/lib/nfblockd/dbus.so
+	install -D -m 755 src/nfblockd $(SBINDIR)/nfblockd
+	install -D -m 644 dbus-nfblockd.conf $(DBUSCONFDIR)/nfblockd.conf
+	install -D -m 644 src/dbus.so $(PLUGINDIR)/dbus.so
 
 dist:
 	rm -rf $(DISTDIR)

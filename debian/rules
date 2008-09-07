@@ -23,7 +23,7 @@ build:
 	dh_testdir
 
 	# Add here commands to compile the package.
-	$(MAKE) INSTALLROOT=/usr DBUSROOT=/
+	$(MAKE) prefix=/usr DBUSCONFDIR=/etc/dbus-1/system.d
 
 
 clean:
@@ -42,7 +42,7 @@ install: build
 	dh_installdirs
 
 	# Add here commands to install the package into debian/nfblockd.
-	$(MAKE) install INSTALLROOT=$(prefix)/usr DBUSROOT=$(prefix)
+	$(MAKE) install prefix=$(prefix)/usr DBUSCONFDIR=$(prefix)/etc/dbus-1/system.d
 
 
 # Build architecture-independent files here.

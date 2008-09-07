@@ -148,7 +148,7 @@ open_dbus()
 {
     char *err;
 
-    dbus_lh = dlopen(ROOT "/lib/nfblockd/dbus.so", RTLD_NOW);
+    dbus_lh = dlopen(PLUGINDIR "/dbus.so", RTLD_NOW);
     if (!dbus_lh) {
         do_log(LOG_ERR, "dlopen() failed");
         return -1;
