@@ -1,7 +1,7 @@
 /*
    NFblockD - Netfilter blocklist daemon
 
-   (c) 2007 Jindrich Makovicka (makovick@gmail.com)
+   (c) 2008 Jindrich Makovicka (makovick@gmail.com)
 
    Portions (c) 2004 Morpheus (ebutera@users.berlios.de)
 

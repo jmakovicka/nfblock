@@ -1,7 +1,7 @@
 /*
    D-Bus messaging interface
 
-   (c) 2008 João Valverde
+   (c) 2008 João Valverde (jpv950@gmail.com)
 
    (c) 2008 Jindrich Makovicka (makovick@gmail.com)
 
