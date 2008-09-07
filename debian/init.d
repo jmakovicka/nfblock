@@ -1,6 +1,13 @@
-#! /bin/sh
-#
-#
+#! /bin/sh -e
+### BEGIN INIT INFO
+# Provides:          nfblockd
+# Required-Start:    $network $syslog
+# Required-Stop:     $network $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: NFblockD Netfiler blocking daemon
+# Description:       A PeerGardian-like daemon handling IP blocklists.
+### END INIT INFO
 
 DESC="netfilter blocking daemon"
 DAEMON=/usr/sbin/nfblockd
