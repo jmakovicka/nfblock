@@ -80,18 +80,18 @@ typedef struct
 
 void blocklist_init(blocklist_t *blocklist);
 void blocklist_append(blocklist_t *blocklist,
-		      uint32_t ip_min, uint32_t ip_max,
-		      const char *name, iconv_t ic);
+                      uint32_t ip_min, uint32_t ip_max,
+                      const char *name, iconv_t ic);
 void blocklist_clear(blocklist_t *blocklist, int start);
 void blocklist_sort(blocklist_t *blocklist);
 void blocklist_trim(blocklist_t *blocklist);
 void blocklist_stats(blocklist_t *blocklist);
 #ifndef LOWMEM
 block_entry_t * blocklist_find(blocklist_t *blocklist, uint32_t ip,
-			       block_sub_entry_t **sub, int max);
+                               block_sub_entry_t **sub, int max);
 #else
 block_entry_t * blocklist_find(blocklist_t *blocklist, uint32_t ip,
-			       void *dummy1, int dummy2);
+                               void *dummy1, int dummy2);
 #endif
 void blocklist_dump(blocklist_t *blocklist);
 

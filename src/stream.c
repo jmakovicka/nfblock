@@ -142,7 +142,7 @@ stream_open(stream_t *stream, const char *filename)
     stream->f = fopen(filename, "r");
 
     if (!stream->f)
-	return -1;
+        return -1;
 
     return 0;
 }
@@ -151,7 +151,7 @@ int
 stream_close(stream_t *stream)
 {
     if (fclose(stream->f) < 0)
-	return -1;
+        return -1;
 
     return 0;
 }

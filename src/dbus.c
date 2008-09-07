@@ -53,7 +53,7 @@ nfblockd_dbus_init(log_func_t do_log)
     dbconn = dbus_bus_get (DBUS_BUS_SYSTEM, &dberr);
     if (dbus_error_is_set (&dberr)) {
         do_log(LOG_ERR, "Error connecting to dbus-daemon: %s", dberr.message);
-	return -1;
+        return -1;
     }
     do_log(LOG_INFO, "Connected to system bus.");
 
@@ -62,13 +62,13 @@ nfblockd_dbus_init(log_func_t do_log)
     req = dbus_bus_request_name (dbconn, DBUS_PUBLIC_NAME, DBUS_NAME_FLAG_DO_NOT_QUEUE, &dberr);
     if (dbus_error_is_set (&dberr)) {
         do_log(LOG_ERR, "Error requesting name: %s.", dberr.message);
-	return -1;
+        return -1;
     }
     if (req == DBUS_REQUEST_NAME_REPLY_EXISTS) {
         /* FIXME: replace the current name owner instead of giving up?
          * Need to request name with DBUS_NAME_FLAG_ALLOW_REPLACEMENT in that case... */
         do_log(LOG_WARNING, "nfblockd is already running. Exiting.");
-	return -1;
+        return -1;
     }
 
     return 0;
@@ -90,11 +90,11 @@ nfbd_dbus_iter_append_block_entry(DBusMessageIter *dbiterp, uint32_t addr, char 
     dbb &= dbus_message_iter_append_basic(dbiterp, DBUS_TYPE_BYTE, &n_label);
     /* if there are no labels (typically when forwarding) don't insert the array */
     if (n_label) {
-	dbb &= dbus_message_iter_open_container(dbiterp, DBUS_TYPE_ARRAY, DBUS_TYPE_STRING_AS_STRING, &dbiter_array);
-	while (n_label--) {
-	    dbb &= dbus_message_iter_append_basic(&dbiter_array, DBUS_TYPE_STRING, &name);
-	}
-	dbb &= dbus_message_iter_close_container(dbiterp, &dbiter_array);
+        dbb &= dbus_message_iter_open_container(dbiterp, DBUS_TYPE_ARRAY, DBUS_TYPE_STRING_AS_STRING, &dbiter_array);
+        while (n_label--) {
+            dbb &= dbus_message_iter_append_basic(&dbiter_array, DBUS_TYPE_STRING, &name);
+        }
+        dbb &= dbus_message_iter_close_container(dbiterp, &dbiter_array);
     }
     dbb &= dbus_message_iter_append_basic(dbiterp, DBUS_TYPE_UINT32, &hits);
 
@@ -134,40 +134,40 @@ nfblockd_dbus_send_signal_nfq(log_func_t do_log, int signal, char action, char *
     if (!dbmsg) {
         dbb = FALSE;
     } else {
-	dbus_message_iter_init_append(dbmsg, &dbiter);
-	dbb &= dbus_message_iter_append_basic(&dbiter, DBUS_TYPE_BYTE, &action);
+        dbus_message_iter_init_append(dbmsg, &dbiter);
+        dbb &= dbus_message_iter_append_basic(&dbiter, DBUS_TYPE_BYTE, &action);
 
-	va_start(ap, fmt);
-	while (fmt) {
-	    while (*fmt) {
-		switch (*fmt++) {
-		case ADDR: addr = va_arg(ap, uint32_t); break;
-		case NAME: name = va_arg(ap, char *);   break;
-		case HITS: hits = va_arg(ap, uint32_t); break;
-		}
-	    }
-	    dbb &= dbus_message_iter_open_container(&dbiter, DBUS_TYPE_STRUCT, NULL, &dbiter_sub);
-	    dbb &= nfbd_dbus_iter_append_block_entry(&dbiter_sub, addr, name, hits);
-	    dbb &= dbus_message_iter_close_container(&dbiter, &dbiter_sub);
-	    fmt = va_arg(ap, char *);
-	}
-	va_end(ap);
+        va_start(ap, fmt);
+        while (fmt) {
+            while (*fmt) {
+                switch (*fmt++) {
+                case ADDR: addr = va_arg(ap, uint32_t); break;
+                case NAME: name = va_arg(ap, char *);   break;
+                case HITS: hits = va_arg(ap, uint32_t); break;
+                }
+            }
+            dbb &= dbus_message_iter_open_container(&dbiter, DBUS_TYPE_STRUCT, NULL, &dbiter_sub);
+            dbb &= nfbd_dbus_iter_append_block_entry(&dbiter_sub, addr, name, hits);
+            dbb &= dbus_message_iter_close_container(&dbiter, &dbiter_sub);
+            fmt = va_arg(ap, char *);
+        }
+        va_end(ap);
 
-	/* NOTE: POSIX specifies time_t type as arithmetic type (so it can be floating point) */
-	/* it would be more portable to use a string representation for time (eg: ISO 8601 with UTC),
-	 * but most (all?) Unix-like systems use an integral value for time_t */
-	/* it's nice to have the same time stamp on all records but anyway it's optional and clients should supply their own if it's missing */
-	dbb &= dbus_message_iter_open_container(&dbiter, DBUS_TYPE_VARIANT, DBUS_TYPE_INT64_AS_STRING, &dbiter_sub);
-	dbb &= dbus_message_iter_append_basic(&dbiter_sub, DBUS_TYPE_INT64, &curtime);
-	dbb &= dbus_message_iter_close_container(&dbiter, &dbiter_sub);
+        /* NOTE: POSIX specifies time_t type as arithmetic type (so it can be floating point) */
+        /* it would be more portable to use a string representation for time (eg: ISO 8601 with UTC),
+         * but most (all?) Unix-like systems use an integral value for time_t */
+        /* it's nice to have the same time stamp on all records but anyway it's optional and clients should supply their own if it's missing */
+        dbb &= dbus_message_iter_open_container(&dbiter, DBUS_TYPE_VARIANT, DBUS_TYPE_INT64_AS_STRING, &dbiter_sub);
+        dbb &= dbus_message_iter_append_basic(&dbiter_sub, DBUS_TYPE_INT64, &curtime);
+        dbb &= dbus_message_iter_close_container(&dbiter, &dbiter_sub);
 
-	if (dbb && dbus_connection_get_is_connected(dbconn)) {
-	    dbus_connection_send (dbconn, dbmsg, NULL);
-	}
+        if (dbb && dbus_connection_get_is_connected(dbconn)) {
+            dbus_connection_send (dbconn, dbmsg, NULL);
+        }
     }
 
     if (!dbb)
-	do_log(LOG_CRIT, "Cannot create D-Bus message (out of memory?).");
+        do_log(LOG_CRIT, "Cannot create D-Bus message (out of memory?).");
 
     dbus_message_unref(dbmsg);
 

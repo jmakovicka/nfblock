@@ -40,17 +40,17 @@ blocklist_init(blocklist_t *blocklist)
     blocklist->subcount = 0;
 #endif
 }
-		 
+
 void
 blocklist_append(blocklist_t *blocklist,
-		 uint32_t ip_min, uint32_t ip_max,
-		 const char *name, iconv_t ic)
+                 uint32_t ip_min, uint32_t ip_max,
+                 const char *name, iconv_t ic)
 {
     block_entry_t *e;
     if (blocklist->size == blocklist->count) {
         blocklist->size += 16384;
         blocklist->entries = realloc(blocklist->entries, sizeof(block_entry_t) * blocklist->size);
-	CHECK_OOM(blocklist->entries);
+        CHECK_OOM(blocklist->entries);
     }
     e = blocklist->entries + blocklist->count;
     e->ip_min = ip_min;
@@ -61,7 +61,7 @@ blocklist_append(blocklist_t *blocklist,
         size_t insize, outsize;
         char *inb, *outb;
         int ret;
-        
+
         insize = strlen(name);
         inb = (char *)name;
         outsize = MAX_LABEL_LENGTH - 1;
@@ -101,9 +101,9 @@ blocklist_clear(blocklist_t *blocklist, int start)
         blocklist->size = 0;
 #ifndef LOWMEM
         if (blocklist->subentries) {
-	    for (i = 0; i < blocklist->subcount; i++)
-		if (blocklist->subentries[i].name)
-		    free(blocklist->subentries[i].name);
+            for (i = 0; i < blocklist->subcount; i++)
+                if (blocklist->subentries[i].name)
+                    free(blocklist->subentries[i].name);
             free(blocklist->subentries);
             blocklist->subentries = 0;
         }
@@ -112,8 +112,8 @@ blocklist_clear(blocklist_t *blocklist, int start)
     } else {
         blocklist->size = blocklist->count = start;
         blocklist->entries = realloc(blocklist->entries,
-				     sizeof(block_entry_t) * blocklist->size);
-	CHECK_OOM(blocklist->entries);
+                                     sizeof(block_entry_t) * blocklist->size);
+        CHECK_OOM(blocklist->entries);
     }
 }
 
@@ -169,7 +169,7 @@ blocklist_trim(blocklist_t *blocklist)
         if (j > i + 1) {
             char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
             char *tmp = malloc(32 * (j - i + 1) + 1);
-	    CHECK_OOM(tmp);
+            CHECK_OOM(tmp);
             /* List the merged entries */
             tmp[0] = 0;
             for (k = i; k < j; k++) {
@@ -253,7 +253,7 @@ blocklist_stats(blocklist_t *blocklist)
 #ifndef LOWMEM
 block_entry_t *
 blocklist_find(blocklist_t *blocklist, uint32_t ip,
-	       block_sub_entry_t **sub, int max)
+               block_sub_entry_t **sub, int max)
 {
     block_entry_t e;
     block_entry_t *ret;
@@ -288,7 +288,7 @@ blocklist_find(blocklist_t *blocklist, uint32_t ip,
 #else
 block_entry_t *
 blocklist_find(blocklist_t *blocklist, uint32_t ip,
-	       void *dummy1, int dummy2)
+               void *dummy1, int dummy2)
 {
     block_entry_t e;
 
@@ -304,26 +304,26 @@ blocklist_dump(blocklist_t *blocklist)
 
     for (i = 0; i < blocklist->count; i++) {
         char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
-	block_entry_t *e = &blocklist->entries[i];
-	
+        block_entry_t *e = &blocklist->entries[i];
+
         ip2str(buf1, e->ip_min);
         ip2str(buf2, e->ip_max);
 #ifndef LOWMEM
-	if (e->name) {
-	    printf("%d - %s-%s - %s\n", i, buf1, buf2, e->name);
-	} else {
-	    int j;
-	    printf("%d - %s-%s is a composite range:\n", i, buf1, buf2);
-	    for (j = e->merged_idx; j < blocklist->subcount; j++) {
-		block_sub_entry_t *s = &blocklist->subentries[j];
-		if (s->ip_max > s->ip_max) break;
-		ip2str(buf1, s->ip_min);
-		ip2str(buf2, s->ip_max);
-		printf("  Sub-Range: %s-%s - %s\n", buf1, buf2, s->name);
-	    }
-	}
+        if (e->name) {
+            printf("%d - %s-%s - %s\n", i, buf1, buf2, e->name);
+        } else {
+            int j;
+            printf("%d - %s-%s is a composite range:\n", i, buf1, buf2);
+            for (j = e->merged_idx; j < blocklist->subcount; j++) {
+                block_sub_entry_t *s = &blocklist->subentries[j];
+                if (s->ip_max > s->ip_max) break;
+                ip2str(buf1, s->ip_min);
+                ip2str(buf2, s->ip_max);
+                printf("  Sub-Range: %s-%s - %s\n", buf1, buf2, s->name);
+            }
+        }
 #else
-	printf("%d - %s-%s\n", i, buf1, buf2);
+        printf("%d - %s-%s\n", i, buf1, buf2);
 #endif
     }
 }

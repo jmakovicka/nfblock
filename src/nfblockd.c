@@ -238,10 +238,10 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                         ip2str(buf1, ip_src);
 #ifndef LOWMEM
                         do_log(LOG_NOTICE, "Blocked IN: %s, hits: %d, SRC: %s",
-			       sranges[0]->name, src->hits, buf1);
+                               sranges[0]->name, src->hits, buf1);
 #else
                         do_log(LOG_NOTICE, "Blocked IN: hits: %d, SRC: %s",
-			       src->hits, buf1);
+                               src->hits, buf1);
 #endif
                     }
                 }
@@ -281,7 +281,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                                         dranges[0]->name, dst->hits, buf1);
 #else
                         do_log(LOG_NOTICE, "Blocked OUT: %s, hits: %d, DST: %s",
-			       dst->hits, buf1);
+                               dst->hits, buf1);
 #endif
                     }
                 }
@@ -339,7 +339,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                                         src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
 #else
                         do_log(LOG_NOTICE, "Blocked FWD: hits: %d,%d, SRC: %s, DST: %s",
-			       src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
+                               src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
 #endif
                     }
                 }
@@ -629,9 +629,9 @@ main(int argc, char *argv[])
 
     while ((opt = getopt(argc, argv, "q:a:r:dbp:f:v"
 #ifndef LOWMEM
-			 "c:"
+                         "c:"
 #endif
-		)) != -1) {
+                )) != -1) {
         switch (opt) {
         case 'd':
             opt_daemon = 1;
@@ -710,7 +710,7 @@ main(int argc, char *argv[])
             use_dbus = 0;
         }
     }
-    
+
     if (use_dbus) {
         if (nfblockd_dbus_init(do_log) < 0) {
             do_log(LOG_INFO, "Cannot initialize D-Bus");

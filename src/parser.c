@@ -57,7 +57,7 @@ loadlist_dat(blocklist_t *blocklist, const char *filename, const char *charset)
     int total, ok;
     int ret = -1;
     iconv_t ic;
-    
+
     if (stream_open(&s, filename) < 0) {
         do_log(LOG_INFO, "Error opening %s.", filename);
         return -1;
@@ -261,9 +261,9 @@ loadlist_p2b(blocklist_t *blocklist, const char *filename)
 #ifndef LOWMEM
         labels = (char**)malloc(sizeof(char*) * nlabels);
         if (!labels) {
-	    do_log(LOG_ERR, "P2B: Out of memory");
+            do_log(LOG_ERR, "P2B: Out of memory");
             goto err;
-	}
+        }
         for (i = 0; i < nlabels; i++)
             labels[i] = NULL;
 #endif

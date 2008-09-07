@@ -34,12 +34,12 @@ void do_log(int priority, const char *format, ...);
 
 void ip2str(char *dst, uint32_t ip);
 
-#define CHECK_OOM(ptr)					\
-    do {						\
-	if (!ptr) {					\
-	    do_log(LOG_CRIT, "Out of memory");		\
-	    exit (-1);					\
-	}						\
-    } while(0);						\
+#define CHECK_OOM(ptr)                                  \
+    do {                                                \
+        if (!ptr) {                                     \
+            do_log(LOG_CRIT, "Out of memory");          \
+            exit (-1);                                  \
+        }                                               \
+    } while(0);                                         \
 
 #endif
