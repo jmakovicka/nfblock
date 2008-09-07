@@ -148,6 +148,9 @@ blocklist_trim(blocklist_t *blocklist)
 {
     int i, j, k, merged = 0;
 
+    if (blocklist->count == 0)
+	return;
+
 #ifndef LOWMEM
     /* pessimistic, will be reallocated later */
     blocklist->subentries = (block_sub_entry_t *)malloc(blocklist->count * sizeof(block_sub_entry_t));
@@ -220,10 +223,20 @@ blocklist_trim(blocklist_t *blocklist)
     }
 
 #ifndef LOWMEM
-    blocklist->entries = realloc(blocklist->entries, blocklist->count * sizeof(block_entry_t));
-    CHECK_OOM(blocklist->entries);
-    blocklist->subentries = (block_sub_entry_t *)realloc(blocklist->subentries, blocklist->subcount * sizeof(block_sub_entry_t));
-    CHECK_OOM(blocklist->subentries);
+    if (blocklist->count) {
+	blocklist->entries = realloc(blocklist->entries, blocklist->count * sizeof(block_entry_t));
+	CHECK_OOM(blocklist->entries);
+    } else {
+	free(blocklist->entries);
+	blocklist->entries = 0;
+    }
+    if (blocklist->subcount) {
+	blocklist->subentries = (block_sub_entry_t *)realloc(blocklist->subentries, blocklist->subcount * sizeof(block_sub_entry_t));
+	CHECK_OOM(blocklist->subentries);
+    } else {
+	free(blocklist->subentries);
+	blocklist->subentries = 0;
+    }
 #endif
 }
 
