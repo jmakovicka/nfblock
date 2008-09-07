@@ -72,7 +72,6 @@ endif
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 src/nfblockd: $(OBJS)
-	echo $(OBJS)
 	gcc -o $@ $(LDFLAGS) $^
 
 src/dbus.so: src/dbus.o
@@ -87,7 +86,7 @@ install:
 
 dist:
 	rm -rf $(DISTDIR)
-	mkdir $(DISTDIR) $(DISTDIR)/debian
+	mkdir $(DISTDIR) $(DISTDIR)/debian $(DISTDIR)/src
 	for I in $(DISTFILES) ; do cp "$$I" $(DISTDIR)/$$I ; done
 	tar zcf $(PKGNAME)-$(VERSION).tgz $(PKGNAME)-$(VERSION)
 	rm -rf $(DISTDIR)
