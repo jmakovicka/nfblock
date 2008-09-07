@@ -117,7 +117,7 @@ static int use_dbus = 1;
 static void *dbus_lh = NULL;
 
 int (*nfblockd_dbus_init) (log_func_t do_log);
-int (*nfblockd_dbus_send_signal_nfq) (log_func_t do_log, int signal, char action, char *format, ...);
+int (*nfblockd_dbus_send_signal_nfq) (log_func_t do_log, time_t curtime, int signal, char action, char *format, ...);
 
 #define do_dlsym(symbol)                                                \
     do {                                                                \
@@ -230,7 +230,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 if (src->lasttime < curtime - MIN_INTERVAL) {
 #ifdef HAVE_DBUS
                     if (use_dbus) {
-                        nfblockd_dbus_send_signal_nfq(do_log, LOG_NF_IN, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
+                        nfblockd_dbus_send_signal_nfq(do_log, curtime, LOG_NF_IN, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
                                                       FMT_ADDR_NAME_HITS, ip_src, sranges[0]->name, src->hits, (char *)NULL);
                     }
 #endif
@@ -271,7 +271,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                     ip2str(buf1, ip_dst);
 #ifdef HAVE_DBUS
                     if (use_dbus) {
-                        nfblockd_dbus_send_signal_nfq(do_log, LOG_NF_OUT, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
+                        nfblockd_dbus_send_signal_nfq(do_log, curtime, LOG_NF_OUT, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
                                                       FMT_ADDR_NAME_HITS, ip_dst, dranges[0]->name, dst->hits, (char *)NULL);
                     }
 #endif
@@ -323,7 +323,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 if (lasttime < curtime - MIN_INTERVAL) {
 #ifdef HAVE_DBUS
                     if (use_dbus) {
-                        nfblockd_dbus_send_signal_nfq(do_log, LOG_NF_FWD, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
+                        nfblockd_dbus_send_signal_nfq(do_log, curtime, LOG_NF_FWD, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
                                                       FMT_ADDR_NAME_HITS, ip_src, src ? src->name : "", src ? src->hits : 0,
                                                       FMT_ADDR_NAME_HITS, ip_dst, dst ? dst->name : "", dst ? dst->hits : 0,
                                                       (char *)NULL);

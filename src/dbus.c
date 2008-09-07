@@ -40,7 +40,6 @@ static unsigned char __nfbp_ipv4_bin = NFBP_IPv4_BIN;
 
 #define NFBP_IPv4_BIN__BY_REF (&__nfbp_ipv4_bin)
 
-extern time_t curtime;
 static DBusConnection *dbconn = NULL;
 
 int
@@ -102,7 +101,7 @@ nfbd_dbus_iter_append_block_entry(DBusMessageIter *dbiterp, uint32_t addr, char 
 }
 
 int
-nfblockd_dbus_send_signal_nfq(log_func_t do_log, int signal, char action, char *fmt, ...)
+nfblockd_dbus_send_signal_nfq(log_func_t do_log, time_t curtime, int signal, char action, char *fmt, ...)
 {
     DBusMessage *dbmsg = NULL;
     DBusMessageIter     dbiter, dbiter_sub;
