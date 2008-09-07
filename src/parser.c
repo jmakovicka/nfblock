@@ -27,7 +27,7 @@
 #include <errno.h>
 #include <string.h>
 
-#include "blockload.h"
+#include "parser.h"
 #include "stream.h"
 
 static void

@@ -49,7 +49,7 @@
 #endif
 
 #include "blocklist.h"
-#include "blockload.h"
+#include "parser.h"
 #include "nfblockd.h"
 #include "dbus.h"
 #include "stream.h"

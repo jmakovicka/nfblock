@@ -14,7 +14,7 @@ SBINDIR ?= $(prefix)/sbin
 DBUSCONFDIR ?= $(prefix)/etc/dbus-1/system.d
 PLUGINDIR ?= $(prefix)/lib/nfblockd
 
-OBJS=src/nfblockd.o src/stream.o src/blocklist.o src/blockload.o
+OBJS=src/nfblockd.o src/stream.o src/blocklist.o src/parser.o
 OPTFLAGS=-Os
 CFLAGS=-Wall $(OPTFLAGS) -ffast-math -DVERSION=\"$(VERSION)\" -DPLUGINDIR=\"$(PLUGINDIR)\"
 LDFLAGS=-lnetfilter_queue -lnfnetlink -lz
@@ -54,7 +54,7 @@ DISTFILES = \
 	Makefile \
 	src/nfblockd.c src/nfblockd.h \
 	src/blocklist.c src/blocklist.h \
-	src/blockload.c src/blockload.h \
+	src/parser.c src/parser.h \
 	src/stream.c src/stream.h \
 	src/dbus.c src/dbus.h \
 	dbus-nfblockd.conf ChangeLog README \
