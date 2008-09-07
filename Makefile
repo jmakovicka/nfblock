@@ -29,7 +29,7 @@ PLUGINDIR ?= $(prefix)/lib/nfblockd
 OBJS=src/nfblockd.o src/stream.o src/blocklist.o src/parser.o
 OPTFLAGS=-Os
 CFLAGS=-Wall $(OPTFLAGS) -ffast-math -DVERSION=\"$(VERSION)\" -DPLUGINDIR=\"$(PLUGINDIR)\"
-LDFLAGS=-lnetfilter_queue -lnfnetlink -lz
+LDFLAGS=-lnetfilter_queue -lnfnetlink
 CC=gcc
 
 ifeq ($(LOWMEM),yes)
