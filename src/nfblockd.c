@@ -571,7 +571,7 @@ do_benchmark()
     }
     end = ustime();
 
-    fprintf(stderr, "%" PRIi64 " matches per second.\n", 1000000LL * ITER / (end - start));
+    fprintf(stderr, "%" PRIi64 " matches per second.\n", ((int64_t)1000000) * ITER / (end - start));
 }
 
 static void
