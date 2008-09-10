@@ -247,17 +247,33 @@ blocklist_stats(blocklist_t *blocklist)
 
     do_log(LOG_INFO, "Blocker hit statistic:");
     for (i = 0; i < blocklist->count; i++) {
-        if (blocklist->entries[i].hits > 0) {
+        block_entry_t *e = &blocklist->entries[i];
+        if (e->hits >= 1) {
             char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
-            ip2str(buf1, blocklist->entries[i].ip_min);
-            ip2str(buf2, blocklist->entries[i].ip_max);
+            ip2str(buf1, e->ip_min);
+            ip2str(buf2, e->ip_max);
 #ifndef LOWMEM
-            do_log(LOG_INFO, "%s - %s-%s: %d", blocklist->entries[i].name,
-                   buf1, buf2, blocklist->entries[i].hits);
+            if (e->name) {
+                do_log(LOG_INFO, "%s - %s-%s: %d", e->name,
+                       buf1, buf2, e->hits);
+            } else {
+                int j, cnt;
+                block_sub_entry_t *s;
+                cnt = 0;
+                for (j = e->merged_idx; j < blocklist->subcount; j++) {
+                    s = &blocklist->subentries[j];
+                    if (s->ip_max > e->ip_max)
+                        break;
+                    cnt++;
+                }
+                s = &blocklist->subentries[e->merged_idx];
+                do_log(LOG_INFO, "%s [+%d] - %s-%s: %d", s->name, cnt - 1,
+                       buf1, buf2, e->hits);
+            }
 #else
-            do_log(LOG_INFO, "%s-%s: %d", buf1, buf2, blocklist->entries[i].hits);
+            do_log(LOG_INFO, "%s-%s: %d", buf1, buf2, e->hits);
 #endif
-            total += blocklist->entries[i].hits;
+            total += e->hits;
         }
     }
     do_log(LOG_INFO, "%d hits total", total);
