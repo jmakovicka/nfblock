@@ -290,7 +290,7 @@ blocklist_find(blocklist_t *blocklist, uint32_t ip,
     cnt = 0;
     for (i = ret->merged_idx; i < blocklist->subcount; i++) {
         block_sub_entry_t * e = &blocklist->subentries[i];
-        if (cnt <= max)
+        if (cnt >= max)
             break;
         if (e->ip_min <= ip && e->ip_max >= ip)
             sub[cnt++] = e;
