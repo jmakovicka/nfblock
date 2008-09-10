@@ -231,7 +231,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 #ifdef HAVE_DBUS
                     if (use_dbus) {
                         nfblockd_dbus_send_signal_nfq(do_log, curtime, LOG_NF_IN, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
-                                                      FMT_ADDR_NAME_HITS, ip_src, sranges[0]->name, src->hits, (char *)NULL);
+                                                      FMT_ADDR_RANGES_HITS, ip_src, sranges, src->hits, (char *)NULL);
                     }
 #endif
                     if (use_syslog) {
@@ -272,7 +272,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 #ifdef HAVE_DBUS
                     if (use_dbus) {
                         nfblockd_dbus_send_signal_nfq(do_log, curtime, LOG_NF_OUT, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
-                                                      FMT_ADDR_NAME_HITS, ip_dst, dranges[0]->name, dst->hits, (char *)NULL);
+                                                      FMT_ADDR_RANGES_HITS, ip_dst, dranges, dst->hits, (char *)NULL);
                     }
 #endif
                     if (use_syslog) {
@@ -324,8 +324,8 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 #ifdef HAVE_DBUS
                     if (use_dbus) {
                         nfblockd_dbus_send_signal_nfq(do_log, curtime, LOG_NF_FWD, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
-                                                      FMT_ADDR_NAME_HITS, ip_src, src ? src->name : "", src ? src->hits : 0,
-                                                      FMT_ADDR_NAME_HITS, ip_dst, dst ? dst->name : "", dst ? dst->hits : 0,
+                                                      FMT_ADDR_RANGES_HITS, ip_src, src ? sranges : NULL, src ? src->hits : 0,
+                                                      FMT_ADDR_RANGES_HITS, ip_dst, dst ? dranges : NULL, dst ? dst->hits : 0,
                                                       (char *)NULL);
 
                     }

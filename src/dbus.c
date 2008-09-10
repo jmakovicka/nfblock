@@ -29,10 +29,13 @@
 #include <stdarg.h>
 #include <syslog.h>
 #include <inttypes.h>
+#include <limits.h>
 
 #include <dbus/dbus.h>
 
 #include "dbus.h"
+#include "blocklist.h"
+#include "nfblockd.h"
 
 #define DBUS_PUBLIC_NAME "org.netfilter.nfblockd"
 
@@ -76,40 +79,66 @@ nfblockd_dbus_init(log_func_t do_log)
 
 
 dbus_bool_t
-nfbd_dbus_iter_append_block_entry(DBusMessageIter *dbiterp, uint32_t addr, char *name, uint32_t hits)
+nfbd_dbus_iter_append_block_entry(DBusMessageIter *dbiterp, uint32_t addr, block_sub_entry_t **ranges, size_t n_ranges, uint32_t hits)
 {
     DBusMessageIter dbiter_array;
-    unsigned char n_label;
     dbus_bool_t dbb = TRUE;
+
+    if (n_ranges > UCHAR_MAX) {
+	do_log(LOG_WARNING, "Ignoring invalid D-Bus message contents");
+	return FALSE;
+    }
 
     /* append signal arguments */
     dbb &= dbus_message_iter_append_basic(dbiterp, DBUS_TYPE_BYTE, NFBP_IPv4_BIN__BY_REF);
     dbb &= dbus_message_iter_append_basic(dbiterp, DBUS_TYPE_UINT32, &addr);
-    n_label = (*name != '\0') ? 1 : 0;
-    dbb &= dbus_message_iter_append_basic(dbiterp, DBUS_TYPE_BYTE, &n_label);
-    /* if there are no labels (typically when forwarding) don't insert the array */
-    if (n_label) {
-        dbb &= dbus_message_iter_open_container(dbiterp, DBUS_TYPE_ARRAY, DBUS_TYPE_STRING_AS_STRING, &dbiter_array);
-        while (n_label--) {
-            dbb &= dbus_message_iter_append_basic(&dbiter_array, DBUS_TYPE_STRING, &name);
+    dbb &= dbus_message_iter_append_basic(dbiterp, DBUS_TYPE_BYTE, &n_ranges);
+    /* if there are no labels (typically when forwarding) don't insert anything */
+    /* if there is one label, insert one string */
+    /* if there is more than one label, insert an array of strings */
+    if (n_ranges == 1) {
+    	dbb &= dbus_message_iter_append_basic(dbiterp, DBUS_TYPE_STRING, &ranges[0]->name);
+    }
+    else if (n_ranges > 1) {
+    	int i = 0;
+    	
+    	dbb &= dbus_message_iter_open_container(dbiterp, DBUS_TYPE_ARRAY, DBUS_TYPE_STRING_AS_STRING, &dbiter_array);
+        while (n_ranges--) {
+            dbb &= dbus_message_iter_append_basic(&dbiter_array, DBUS_TYPE_STRING, &ranges[i++]->name);
         }
-        dbb &= dbus_message_iter_close_container(dbiterp, &dbiter_array);
+        dbb &= dbus_message_iter_close_container(dbiterp, &dbiter_array);    	
     }
     dbb &= dbus_message_iter_append_basic(dbiterp, DBUS_TYPE_UINT32, &hits);
 
     return dbb;
 }
 
+
+size_t 
+block_sub_array_len(block_sub_entry_t **a)
+{
+    size_t s = 0;
+	
+    if (a == NULL)
+	return 0;
+		
+    while (*a++)
+	s++;
+		
+    return s;
+}
+
+
 int
 nfblockd_dbus_send_signal_nfq(log_func_t do_log, time_t curtime, int signal, char action, char *fmt, ...)
 {
     DBusMessage *dbmsg = NULL;
-    DBusMessageIter     dbiter, dbiter_sub;
+    DBusMessageIter dbiter, dbiter_sub;
     dbus_bool_t dbb = TRUE;
     va_list ap;
 
     uint32_t addr = 0;
-    char *name = "";
+    block_sub_entry_t **ranges = NULL;
     uint32_t hits = 0;
 
     /* create dbus signal */
@@ -130,39 +159,39 @@ nfblockd_dbus_send_signal_nfq(log_func_t do_log, time_t curtime, int signal, cha
                                          "blocked_fwd");
         break;
     }
-    if (!dbmsg) {
-        dbb = FALSE;
-    } else {
-        dbus_message_iter_init_append(dbmsg, &dbiter);
-        dbb &= dbus_message_iter_append_basic(&dbiter, DBUS_TYPE_BYTE, &action);
 
-        va_start(ap, fmt);
-        while (fmt) {
-            while (*fmt) {
-                switch (*fmt++) {
-                case ADDR: addr = va_arg(ap, uint32_t); break;
-                case NAME: name = va_arg(ap, char *);   break;
-                case HITS: hits = va_arg(ap, uint32_t); break;
-                }
-            }
-            dbb &= dbus_message_iter_open_container(&dbiter, DBUS_TYPE_STRUCT, NULL, &dbiter_sub);
-            dbb &= nfbd_dbus_iter_append_block_entry(&dbiter_sub, addr, name, hits);
-            dbb &= dbus_message_iter_close_container(&dbiter, &dbiter_sub);
-            fmt = va_arg(ap, char *);
-        }
-        va_end(ap);
+    if (!dbmsg)
+        return -1;
 
-        /* NOTE: POSIX specifies time_t type as arithmetic type (so it can be floating point) */
-        /* it would be more portable to use a string representation for time (eg: ISO 8601 with UTC),
-         * but most (all?) Unix-like systems use an integral value for time_t */
-        /* it's nice to have the same time stamp on all records but anyway it's optional and clients should supply their own if it's missing */
-        dbb &= dbus_message_iter_open_container(&dbiter, DBUS_TYPE_VARIANT, DBUS_TYPE_INT64_AS_STRING, &dbiter_sub);
-        dbb &= dbus_message_iter_append_basic(&dbiter_sub, DBUS_TYPE_INT64, &curtime);
-        dbb &= dbus_message_iter_close_container(&dbiter, &dbiter_sub);
+    dbus_message_iter_init_append(dbmsg, &dbiter);
+    dbb &= dbus_message_iter_append_basic(&dbiter, DBUS_TYPE_BYTE, &action);
 
-        if (dbb && dbus_connection_get_is_connected(dbconn)) {
-            dbus_connection_send (dbconn, dbmsg, NULL);
-        }
+    va_start(ap, fmt);
+    while (fmt) {
+	while (*fmt) {
+	    switch (*fmt++) {
+	    case ADDR: addr = va_arg(ap, uint32_t); break;
+	    case RANGES: ranges = va_arg(ap, block_sub_entry_t **);   break;
+	    case HITS: hits = va_arg(ap, uint32_t); break;
+	    }
+	}
+	dbb &= dbus_message_iter_open_container(&dbiter, DBUS_TYPE_STRUCT, NULL, &dbiter_sub);
+	dbb &= nfbd_dbus_iter_append_block_entry(&dbiter_sub, addr, ranges, block_sub_array_len(ranges), hits);
+	dbb &= dbus_message_iter_close_container(&dbiter, &dbiter_sub);
+	fmt = va_arg(ap, char *);
+    }
+    va_end(ap);
+
+    /* NOTE: POSIX specifies time_t type as arithmetic type (so it can be floating point) */
+    /* it would be more portable to use a string representation for time (eg: ISO 8601 with UTC),
+     * but most (all?) Unix-like systems use an integral value for time_t */
+    /* it's nice to have the same time stamp on all records but anyway it's optional and clients should supply their own if it's missing */
+    dbb &= dbus_message_iter_open_container(&dbiter, DBUS_TYPE_VARIANT, DBUS_TYPE_INT64_AS_STRING, &dbiter_sub);
+    dbb &= dbus_message_iter_append_basic(&dbiter_sub, DBUS_TYPE_INT64, &curtime);
+    dbb &= dbus_message_iter_close_container(&dbiter, &dbiter_sub);
+
+    if (dbb && dbus_connection_get_is_connected(dbconn)) {
+	dbus_connection_send (dbconn, dbmsg, NULL);
     }
 
     if (!dbb)

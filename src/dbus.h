@@ -32,9 +32,9 @@
 #define NFBP_ACTION_DROP 'd'
 #define NFBP_IPv4_BIN 0x0
 
-#define FMT_ADDR_NAME_HITS "anh"
+#define FMT_ADDR_RANGES_HITS "arh"
 #define ADDR 'a'
-#define NAME 'n'
+#define RANGES 'r'
 #define HITS 'h'
 
 typedef enum {
