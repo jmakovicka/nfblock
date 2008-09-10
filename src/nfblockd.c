@@ -89,6 +89,9 @@ static volatile command_t command = CMD_NONE;
 static time_t curtime = 0;
 static FILE* pidfile = NULL;
 
+struct nfq_handle *nfqueue_h = 0;
+struct nfq_q_handle *nfqueue_qh = 0;
+
 void
 do_log(int priority, const char *format, ...)
 {
@@ -364,43 +367,63 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 }
 
 static int
+nfqueue_bind()
+{
+    nfqueue_h = nfq_open();
+    if (!nfqueue_h) {
+        do_log(LOG_ERR, "Error during nfq_open(): %s", strerror(errno));
+        return -1;
+    }
+
+    if (nfq_bind_pf(nfqueue_h, AF_INET) < 0) {
+        do_log(LOG_ERR, "Error during nfq_bind_pf(): %s", strerror(errno));
+        nfq_close(nfqueue_h);
+        return -1;
+    }
+
+    do_log(LOG_INFO, "NFQUEUE: binding to queue %d", queue_num);
+    nfqueue_qh = nfq_create_queue(nfqueue_h, queue_num, &nfqueue_cb, NULL);
+    if (!nfqueue_qh) {
+        do_log(LOG_ERR, "error during nfq_create_queue(): %s", strerror(errno));
+        nfq_close(nfqueue_h);
+        return -1;
+    }
+
+    if (nfq_set_mode(nfqueue_qh, NFQNL_COPY_PACKET, 21) < 0) {
+        do_log(LOG_ERR, "can't set packet_copy mode: %s", strerror(errno));
+        nfq_destroy_queue(nfqueue_qh);
+        nfq_close(nfqueue_h);
+        return -1;
+    }
+    return 0;
+}
+
+static void
+nfqueue_unbind()
+{
+    if (!nfqueue_h)
+	return;
+
+    do_log(LOG_INFO, "NFQUEUE: unbinding from queue 0");
+    nfq_destroy_queue(nfqueue_qh);
+    if (nfq_unbind_pf(nfqueue_h, AF_INET) < 0) {
+        do_log(LOG_ERR, "Error during nfq_unbind_pf(): %s", strerror(errno));
+    }
+    nfq_close(nfqueue_h);
+}
+
+static int
 nfqueue_loop ()
 {
-    struct nfq_handle *h;
-    struct nfq_q_handle *qh;
     struct nfnl_handle *nh;
     int fd, rv;
     char buf[2048];
     struct pollfd fds[1];
 
-    h = nfq_open();
-    if (!h) {
-        do_log(LOG_ERR, "Error during nfq_open(): %s", strerror(errno));
-        return -1;
-    }
+    if (nfqueue_bind() < 0)
+	return -1;
 
-    if (nfq_bind_pf(h, AF_INET) < 0) {
-        do_log(LOG_ERR, "Error during nfq_bind_pf(): %s", strerror(errno));
-        nfq_close(h);
-        return -1;
-    }
-
-    do_log(LOG_INFO, "NFQUEUE: binding to queue %d", queue_num);
-    qh = nfq_create_queue(h, queue_num, &nfqueue_cb, NULL);
-    if (!qh) {
-        do_log(LOG_ERR, "error during nfq_create_queue(): %s", strerror(errno));
-        nfq_close(h);
-        return -1;
-    }
-
-    if (nfq_set_mode(qh, NFQNL_COPY_PACKET, 21) < 0) {
-        do_log(LOG_ERR, "can't set packet_copy mode: %s", strerror(errno));
-        nfq_destroy_queue(qh);
-        nfq_close(h);
-        return -1;
-    }
-
-    nh = nfq_nfnlh(h);
+    nh = nfq_nfnlh(nfqueue_h);
     fd = nfnl_fd(nh);
 
     for (;;) {
@@ -418,7 +441,7 @@ nfqueue_loop ()
             if (rv < 0)
                 goto out;
             if (rv >= 0)
-                nfq_handle_packet(h, buf, rv);
+                nfq_handle_packet(nfqueue_h, buf, rv);
         }
 
         if (unlikely (command != CMD_NONE)) {
@@ -440,17 +463,12 @@ nfqueue_loop ()
         }
     }
 out:
-    do_log(LOG_INFO, "NFQUEUE: unbinding from queue 0");
-    nfq_destroy_queue(qh);
-    if (nfq_unbind_pf(h, AF_INET) < 0) {
-        do_log(LOG_ERR, "Error during nfq_unbind_pf(): %s", strerror(errno));
-    }
-    nfq_close(h);
+    nfqueue_unbind();
     return 0;
 }
 
 static void
-sighandler(int sig)
+sighandler(int sig, siginfo_t *info, void *context)
 {
     switch (sig) {
     case SIGUSR1:
@@ -462,6 +480,11 @@ sighandler(int sig)
     case SIGTERM:
     case SIGINT:
         command = CMD_QUIT;
+	break;
+    case SIGSEGV:
+	nfqueue_unbind();
+	abort();
+	break;
     default:
         break;
     }
@@ -472,8 +495,9 @@ install_sighandler()
 {
     struct sigaction sa;
 
-    sa.sa_handler = sighandler;
-    sa.sa_flags = SA_RESTART;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_sigaction = sighandler;
+    sa.sa_flags = SA_RESTART | SA_SIGINFO;
 
     if (sigaction(SIGUSR1, &sa, NULL) < 0) {
         perror("Error setting signal handler for SIGUSR1\n");
@@ -489,6 +513,10 @@ install_sighandler()
     }
     if ( sigaction(SIGINT, &sa, NULL) < 0 ) {
         perror("Error setting signal handler for SIGINT\n");
+        return -1;
+    }
+    if ( sigaction(SIGSEGV, &sa, NULL) < 0 ) {
+        perror("Error setting signal handler for SIGABRT\n");
         return -1;
     }
     return 0;
