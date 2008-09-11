@@ -27,8 +27,8 @@ DBUSCONFDIR ?= /etc/dbus-1/system.d
 PLUGINDIR ?= $(prefix)/lib/nfblockd
 
 OBJS=src/nfblockd.o src/stream.o src/blocklist.o src/parser.o
-OPTFLAGS=-Os
-CFLAGS=-Wall $(OPTFLAGS) -ffast-math -DVERSION=\"$(VERSION)\" -DPLUGINDIR=\"$(PLUGINDIR)\"
+OPTFLAGS=-ffast-math -Os -fomit-frame-pointer
+CFLAGS=-Wall -DVERSION=\"$(VERSION)\" -DPLUGINDIR=\"$(PLUGINDIR)\"
 LDFLAGS=-lnetfilter_queue -lnfnetlink
 CC=gcc
 
@@ -54,11 +54,13 @@ else
 ifeq ($(DEBUG),yes)
 CFLAGS+=-ggdb3
 LDFLAGS+=-ggdb3
+OPTFLAGS=-O0
 else
-CFLAGS+=-fomit-frame-pointer
 LDFLAGS+=-s
 endif
 endif
+
+CFLAGS+=$(OPTFLAGS)
 
 DISTDIR = $(PKGNAME)-$(VERSION)
 
