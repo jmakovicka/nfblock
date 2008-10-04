@@ -6,14 +6,14 @@
 
   (c) 2008 Jindrich Makovicka (makovick@gmail.com)
 
-  This file is part of NFblockD.
+  This file is part of NFblock.
 
-  NFblockD is free software; you can redistribute it and/or modify
+  NFblock is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation; either version 2, or (at your option)
   any later version.
 
-  NFblockD is distributed in the hope that it will be useful,
+  NFblock is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
@@ -36,7 +36,7 @@
 #include "blocklist.h"
 #include "nfblockd.h"
 
-#define DBUS_PUBLIC_NAME "org.netfilter.nfblockd"
+#define DBUS_PUBLIC_NAME "org.netfilter.nfblock"
 
 static unsigned char __nfbp_ipv4_bin = NFBP_IPv4_BIN;
 
@@ -45,7 +45,7 @@ static unsigned char __nfbp_ipv4_bin = NFBP_IPv4_BIN;
 static DBusConnection *dbconn = NULL;
 
 int
-nfblockd_dbus_init(log_func_t do_log)
+nfblock_dbus_init(log_func_t do_log)
 {
     DBusError dberr;
     int req;
@@ -128,7 +128,7 @@ nfbd_dbus_iter_append_block_entry_v4(DBusMessageIter *dbiterp, uint32_t addr, bl
 }
 
 int
-nfblockd_dbus_send_signal_nfq(log_func_t do_log, time_t curtime, int signal, char action, char *fmt, ...)
+nfblock_dbus_send_signal_nfq(log_func_t do_log, time_t curtime, int signal, char action, char *fmt, ...)
 {
     DBusMessage *dbmsg = NULL;
     DBusMessageIter dbiter, dbiter_sub;
@@ -142,18 +142,18 @@ nfblockd_dbus_send_signal_nfq(log_func_t do_log, time_t curtime, int signal, cha
     /* create dbus signal */
     switch (signal) {
     case LOG_NF_IN:
-        dbmsg = dbus_message_new_signal ("/org/netfilter/nfblockd",
-                                         "org.netfilter.nfblockd",
+        dbmsg = dbus_message_new_signal ("/org/netfilter/nfblock",
+                                         "org.netfilter.nfblock",
                                          "blocked_in");
         break;
     case LOG_NF_OUT:
-        dbmsg = dbus_message_new_signal ("/org/netfilter/nfblockd",
-                                         "org.netfilter.nfblockd",
+        dbmsg = dbus_message_new_signal ("/org/netfilter/nfblock",
+                                         "org.netfilter.nfblock",
                                          "blocked_out");
         break;
     case LOG_NF_FWD:
-        dbmsg = dbus_message_new_signal ("/org/netfilter/nfblockd",
-                                         "org.netfilter.nfblockd",
+        dbmsg = dbus_message_new_signal ("/org/netfilter/nfblock",
+                                         "org.netfilter.nfblock",
                                          "blocked_fwd");
         break;
     }

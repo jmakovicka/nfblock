@@ -130,7 +130,7 @@ be properly merged in that case.
 .D-Bus support.
 
    NFblockD is able to report filter hits via D-Bus interface
-   org.netfilter.nfblockd . You can check the functionality by running
+   org.netfilter.nfblock . You can check the functionality by running
 
    dbus-monitor --system
 

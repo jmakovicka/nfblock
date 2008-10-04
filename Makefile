@@ -1,4 +1,4 @@
-PKGNAME = nfblockd
+PKGNAME = nfblock
 VERSION = 0.6
 
 # Set DBUS to yes if you want to be able to use DBUS.
@@ -24,7 +24,7 @@ ZLIB ?= yes
 prefix ?= /usr/local
 SBINDIR ?= $(prefix)/sbin
 DBUSCONFDIR ?= /etc/dbus-1/system.d
-PLUGINDIR ?= $(prefix)/lib/nfblockd
+PLUGINDIR ?= $(prefix)/lib/nfblock
 
 OBJS=src/nfblockd.o src/stream.o src/blocklist.o src/parser.o
 OPTFLAGS=-ffast-math -Os -fomit-frame-pointer

@@ -3,14 +3,14 @@
 if test "$1" = "configure"; then
     ENABLED=0
 
-    test -f /etc/default/nfblockd && . /etc/default/nfblockd
+    test -f /etc/default/nfblock && . /etc/default/nfblock
 
     if [ "$ENABLED" = "0" ]; then
 	exit 0
     fi
 
-    mkdir -p /var/lib/nfblockd
-    wget -P/var/lib/nfblockd/ -N $BLOCKLIST_URL
+    mkdir -p /var/lib/nfblock
+    wget -P/var/lib/nfblock/ -N $BLOCKLIST_URL
 fi
 
 #DEBHELPER#

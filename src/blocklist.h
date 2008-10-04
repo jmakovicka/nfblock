@@ -1,9 +1,9 @@
 /*
-   NFblockD - Netfilter blocklist daemon
+   Blocklist management
 
    (c) 2008 Jindrich Makovicka (makovick@gmail.com)
 
-   This file is part of NFblockD.
+   This file is part of NFblock.
 
    NFblockD is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by

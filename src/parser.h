@@ -1,5 +1,5 @@
 /*
-   NFblockD - Netfilter blocklist daemon
+   Blocklist parser
 
    (c) 2008 Jindrich Makovicka (makovick@gmail.com)
 

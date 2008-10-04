@@ -1,11 +1,11 @@
-Source: nfblockd
+Source: nfblock
 Section: net
 Priority: optional
 Maintainer: Jindrich Makovicka <makovick@gmail.com>
 Build-Depends: debhelper (>= 4.1.0), zlib1g-dev, libnetfilter-queue-dev, libnfnetlink-dev, libdbus-1-dev
 Standards-Version: 3.6.1.1
 
-Package: nfblockd
+Package: nfblock
 Architecture: any
 Depends: wget, ${shlibs:Depends}
 Description: Netfilter blocklist daemon

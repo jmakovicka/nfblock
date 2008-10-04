@@ -2,3 +2,7 @@
 ENABLED=1
 # blocklist url
 BLOCKLIST_URL=http://www.bluetack.co.uk/config/nipfilter.dat.gz
+# use DBus ?
+DBUS=1
+# log the hits to the system log ?
+SYSLOG=1

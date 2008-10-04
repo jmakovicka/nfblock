@@ -1,29 +1,29 @@
 #! /bin/sh -e
 ### BEGIN INIT INFO
-# Provides:          nfblockd
+# Provides:          nfblock
 # Required-Start:    $network $syslog
 # Required-Stop:     $network $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: NFblockD Netfiler blocking daemon
+# Short-Description: NFblock Netfiler blocking daemon
 # Description:       A PeerGardian-like daemon handling IP blocklists.
 ### END INIT INFO
 
 DESC="netfilter blocking daemon"
 DAEMON=/usr/sbin/nfblockd
-BLOCKLIST_DIR=/var/lib/nfblockd
+BLOCKLIST_DIR=/var/lib/nfblock
 PIDFILE=/var/run/nfblockd.pid
 ENABLED=0
 
 test -f /usr/sbin/nfblockd || exit 0
-test -f /etc/default/nfblockd && . /etc/default/nfblockd
+test -f /etc/default/nfblock && . /etc/default/nfblock
 
 BLOCKLIST_FILE=$BLOCKLIST_DIR/`basename $BLOCKLIST_URL`
 
 test -f $BLOCKLIST_FILE || exit 0
 
 if [ "$ENABLED" = "0" ]; then
-    echo "$DESC: disabled, see /etc/default/nfblockd"
+    echo "$DESC: disabled, see /etc/default/nfblock"
     exit 0
 fi
 
@@ -32,6 +32,12 @@ case "$1" in
 	echo -n "Starting $DESC:"
 	echo -n " nfblockd"
 	NFBLOCKD_ARGS="-d $BLOCKLIST_FILE"
+	if [ "$DBUS" = "0" ]; then
+	    NFBLOCKD_ARGS="$NFBLOCKD_ARGS --no-dbus"
+	fi
+	if [ "$SYSLOG" = "0" ]; then
+	    NFBLOCKD_ARGS="$NFBLOCKD_ARGS --no-syslog"
+	fi
 	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- $NFBLOCKD_ARGS \
 	    < /dev/null
 	echo "."
@@ -52,7 +58,7 @@ case "$1" in
 	$0 start
 	;;
     *)
-	echo "Usage: /etc/init.d/nfblockd {start|stop|reload|restart|force-reload}"
+	echo "Usage: /etc/init.d/nfblock {start|stop|reload|restart|force-reload}"
 	exit 1
 esac
 

@@ -1,18 +1,18 @@
 /*
-   NFblockD - Netfilter blocklist daemon
+   Netfilter blocking daemon
 
    (c) 2008 Jindrich Makovicka (makovick@gmail.com)
 
    Portions (c) 2004 Morpheus (ebutera@users.berlios.de)
 
-   This file is part of NFblockD.
+   This file is part of NFblock.
 
-   NFblockD is free software; you can redistribute it and/or modify
+   NFblock is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   NFblockD is distributed in the hope that it will be useful,
+   NFblock is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
@@ -119,8 +119,8 @@ noprint:
 static int use_dbus = 1;
 static void *dbus_lh = NULL;
 
-int (*nfblockd_dbus_init) (log_func_t do_log);
-int (*nfblockd_dbus_send_signal_nfq) (log_func_t do_log, time_t curtime, int signal, char action, char *format, ...);
+int (*nfblock_dbus_init) (log_func_t do_log);
+int (*nfblock_dbus_send_signal_nfq) (log_func_t do_log, time_t curtime, int signal, char action, char *format, ...);
 
 #define do_dlsym(symbol)                                                \
     do {                                                                \
@@ -144,8 +144,8 @@ open_dbus()
     }
     dlerror(); // clear the error flag
 
-    do_dlsym(nfblockd_dbus_init);
-    do_dlsym(nfblockd_dbus_send_signal_nfq);
+    do_dlsym(nfblock_dbus_init);
+    do_dlsym(nfblock_dbus_send_signal_nfq);
 
     return 0;
 
@@ -233,7 +233,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 if (src->lasttime < curtime - MIN_INTERVAL) {
 #ifdef HAVE_DBUS
                     if (use_dbus) {
-                        nfblockd_dbus_send_signal_nfq(do_log, curtime, LOG_NF_IN, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
+                        nfblock_dbus_send_signal_nfq(do_log, curtime, LOG_NF_IN, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
                                                       FMT_ADDR_RANGES_HITS, ip_src, sranges, src->hits, (char *)NULL);
                     }
 #endif
@@ -274,7 +274,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                     ip2str(buf1, ip_dst);
 #ifdef HAVE_DBUS
                     if (use_dbus) {
-                        nfblockd_dbus_send_signal_nfq(do_log, curtime, LOG_NF_OUT, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
+                        nfblock_dbus_send_signal_nfq(do_log, curtime, LOG_NF_OUT, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
                                                       FMT_ADDR_RANGES_HITS, ip_dst, dranges, dst->hits, (char *)NULL);
                     }
 #endif
@@ -326,7 +326,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 if (lasttime < curtime - MIN_INTERVAL) {
 #ifdef HAVE_DBUS
                     if (use_dbus) {
-                        nfblockd_dbus_send_signal_nfq(do_log, curtime, LOG_NF_FWD, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
+                        nfblock_dbus_send_signal_nfq(do_log, curtime, LOG_NF_FWD, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
                                                       FMT_ADDR_RANGES_HITS, ip_src, src ? sranges : NULL, src ? src->hits : 0,
                                                       FMT_ADDR_RANGES_HITS, ip_dst, dst ? dranges : NULL, dst ? dst->hits : 0,
                                                       (char *)NULL);
@@ -655,11 +655,11 @@ main(int argc, char *argv[])
 {
     int opt, i;
 
-    while ((opt = getopt(argc, argv, "q:a:r:dbp:f:v"
+    while ((opt = getopt_long(argc, argv, "q:a:r:dbp:f:v"
 #ifndef LOWMEM
-                         "c:"
+			      "c:"
 #endif
-                )) != -1) {
+			      , long_options, NULL)) != -1) {
         switch (opt) {
         case 'd':
             opt_daemon = 1;
@@ -740,7 +740,7 @@ main(int argc, char *argv[])
     }
 
     if (use_dbus) {
-        if (nfblockd_dbus_init(do_log) < 0) {
+        if (nfblock_dbus_init(do_log) < 0) {
             do_log(LOG_INFO, "Cannot initialize D-Bus");
             use_dbus = 0;
         }

@@ -1,5 +1,5 @@
 /*
-   NFblockD - Netfilter blocklist daemon
+   Stream reader
 
    (c) 2008 Jindrich Makovicka (makovick@gmail.com)
 
