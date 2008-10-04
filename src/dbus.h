@@ -37,6 +37,8 @@
 #define RANGES 'r'
 #define HITS 'h'
 
+#define NFB_RANGES_MAX 255
+
 typedef enum {
     LOG_NF_IN,
     LOG_NF_OUT,

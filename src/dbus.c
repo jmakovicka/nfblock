@@ -29,7 +29,6 @@
 #include <stdarg.h>
 #include <syslog.h>
 #include <inttypes.h>
-#include <limits.h>
 
 #include <dbus/dbus.h>
 
@@ -76,65 +75,64 @@ nfblockd_dbus_init(log_func_t do_log)
     return 0;
 }
 
+size_t
+block_sub_array_len(block_sub_entry_t **a)
+{
+    size_t s = 0;
 
+    if (a == NULL)
+	return 0;
+
+    while (*a++)
+	s++;
+
+    return s;
+}
 
 dbus_bool_t
-nfbd_dbus_iter_append_block_entry(DBusMessageIter *dbiterp, uint32_t addr, block_sub_entry_t **ranges, size_t n_ranges, uint32_t hits)
+nfbd_dbus_iter_append_block_entry_v4(DBusMessageIter *dbiterp, uint32_t addr, block_sub_entry_t **ranges, uint32_t hits)
 {
-    DBusMessageIter dbiter_array;
+    DBusMessageIter dbiter_array, dbiter_struct;
     dbus_bool_t dbb = TRUE;
+    size_t n_ranges = block_sub_array_len(ranges);
 
-    if (n_ranges > UCHAR_MAX) {
+    if (n_ranges > NFB_RANGES_MAX) {
 	do_log(LOG_WARNING, "Ignoring invalid D-Bus message contents");
 	return FALSE;
     }
 
     /* append signal arguments */
     dbb &= dbus_message_iter_append_basic(dbiterp, DBUS_TYPE_BYTE, NFBP_IPv4_BIN__BY_REF);
-    dbb &= dbus_message_iter_append_basic(dbiterp, DBUS_TYPE_UINT32, &addr);
-    dbb &= dbus_message_iter_append_basic(dbiterp, DBUS_TYPE_BYTE, &n_ranges);
+
+    dbb &= dbus_message_iter_open_container(dbiterp, DBUS_TYPE_STRUCT, NULL, &dbiter_struct);
+    dbb &= dbus_message_iter_append_basic(&dbiter_struct, DBUS_TYPE_UINT32, &addr);
+    dbb &= dbus_message_iter_append_basic(&dbiter_struct, DBUS_TYPE_UINT32, &hits);
     /* if there are no labels (typically when forwarding) don't insert anything */
     /* if there is one label, insert one string */
     /* if there is more than one label, insert an array of strings */
     if (n_ranges == 1) {
-    	dbb &= dbus_message_iter_append_basic(dbiterp, DBUS_TYPE_STRING, &ranges[0]->name);
+    	dbb &= dbus_message_iter_append_basic(&dbiter_struct, DBUS_TYPE_STRING, &ranges[0]->name);
     }
     else if (n_ranges > 1) {
     	int i = 0;
-    	
-    	dbb &= dbus_message_iter_open_container(dbiterp, DBUS_TYPE_ARRAY, DBUS_TYPE_STRING_AS_STRING, &dbiter_array);
+
+    	dbb &= dbus_message_iter_open_container(&dbiter_struct, DBUS_TYPE_ARRAY, DBUS_TYPE_STRING_AS_STRING, &dbiter_array);
         while (n_ranges--) {
             dbb &= dbus_message_iter_append_basic(&dbiter_array, DBUS_TYPE_STRING, &ranges[i++]->name);
         }
-        dbb &= dbus_message_iter_close_container(dbiterp, &dbiter_array);    	
+        dbb &= dbus_message_iter_close_container(&dbiter_struct, &dbiter_array);
     }
-    dbb &= dbus_message_iter_append_basic(dbiterp, DBUS_TYPE_UINT32, &hits);
+    dbb &= dbus_message_iter_close_container(dbiterp, &dbiter_struct);
 
     return dbb;
 }
-
-
-size_t 
-block_sub_array_len(block_sub_entry_t **a)
-{
-    size_t s = 0;
-	
-    if (a == NULL)
-	return 0;
-		
-    while (*a++)
-	s++;
-		
-    return s;
-}
-
 
 int
 nfblockd_dbus_send_signal_nfq(log_func_t do_log, time_t curtime, int signal, char action, char *fmt, ...)
 {
     DBusMessage *dbmsg = NULL;
     DBusMessageIter dbiter, dbiter_sub;
-    dbus_bool_t dbb = TRUE;
+    dbus_bool_t f_drop, dbb = TRUE;
     va_list ap;
 
     uint32_t addr = 0;
@@ -164,10 +162,9 @@ nfblockd_dbus_send_signal_nfq(log_func_t do_log, time_t curtime, int signal, cha
         return -1;
 
     dbus_message_iter_init_append(dbmsg, &dbiter);
-    dbb &= dbus_message_iter_append_basic(&dbiter, DBUS_TYPE_BYTE, &action);
 
     va_start(ap, fmt);
-    while (fmt) {
+    while (fmt && dbb) {
 	while (*fmt) {
 	    switch (*fmt++) {
 	    case ADDR: addr = va_arg(ap, uint32_t); break;
@@ -175,12 +172,15 @@ nfblockd_dbus_send_signal_nfq(log_func_t do_log, time_t curtime, int signal, cha
 	    case HITS: hits = va_arg(ap, uint32_t); break;
 	    }
 	}
-	dbb &= dbus_message_iter_open_container(&dbiter, DBUS_TYPE_STRUCT, NULL, &dbiter_sub);
-	dbb &= nfbd_dbus_iter_append_block_entry(&dbiter_sub, addr, ranges, block_sub_array_len(ranges), hits);
-	dbb &= dbus_message_iter_close_container(&dbiter, &dbiter_sub);
+	dbb &= nfbd_dbus_iter_append_block_entry_v4(&dbiter, addr, ranges, hits);
+
 	fmt = va_arg(ap, char *);
     }
     va_end(ap);
+
+    /* dropped or marked rejected */
+    f_drop = (action == NFBP_ACTION_DROP) ? TRUE : FALSE;
+    dbb &= dbus_message_iter_append_basic(&dbiter, DBUS_TYPE_BOOLEAN, &f_drop);
 
     /* NOTE: POSIX specifies time_t type as arithmetic type (so it can be floating point) */
     /* it would be more portable to use a string representation for time (eg: ISO 8601 with UTC),
