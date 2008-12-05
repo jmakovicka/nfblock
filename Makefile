@@ -29,7 +29,7 @@ PLUGINDIR ?= $(prefix)/lib/nfblock
 OBJS=src/nfblockd.o src/stream.o src/blocklist.o src/parser.o
 OPTFLAGS=-Os
 CFLAGS=-Wall -DVERSION=\"$(VERSION)\" -DPLUGINDIR=\"$(PLUGINDIR)\"
-LDFLAGS=-lnetfilter_queue -lnfnetlink
+LIBS=-lnetfilter_queue -lnfnetlink
 CC=gcc
 
 ifeq ($(LOWMEM),yes)
@@ -39,12 +39,12 @@ endif
 
 ifeq ($(ZLIB),yes)
 CFLAGS+=-DHAVE_ZLIB
-LDFLAGS+=-lz
+LIBS+=-lz
 endif
 
 ifeq ($(DBUS),yes)
 CFLAGS+=-DHAVE_DBUS `pkg-config dbus-1 --cflags` -fPIC
-LDFLAGS+=-ldl
+LIBS+=-ldl
 endif
 
 ifeq ($(PROFILE),yes)
@@ -83,7 +83,7 @@ endif
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 src/nfblockd: $(OBJS)
-	gcc -o $@ $(LDFLAGS) $^
+	gcc -o $@ $(LDFLAGS) $^ $(LIBS)
 
 src/dbus.so: src/dbus.o
 	$(CC) -shared -Wl `pkg-config dbus-1 --libs` -o $@ $^
