@@ -91,12 +91,17 @@ clean:
 	rm -f *~ src/*.o src/*~ src/nfblockd src/dbus.so
 
 install:
-	install -D -m 755 src/nfblockd $(SBINDIR)/nfblockd
-	install -D -m 644 dbus-nfblockd.conf $(DBUSCONFDIR)/nfblockd.conf
-	install -D -m 644 src/dbus.so $(PLUGINDIR)/dbus.so
+	install -D -m 755 src/nfblockd $(DESTDIR)/$(SBINDIR)/nfblockd
+ifeq ($(DBUS),yes)
+	install -D -m 644 dbus-nfblockd.conf $(DESTDIR)/$(DBUSCONFDIR)/nfblockd.conf
+	install -D -m 644 src/dbus.so $(DESTDIR)/$(PLUGINDIR)/dbus.so
+endif
 
 install-strip: install
-	strip $(SBINDIR)/nfblockd $(PLUGINDIR)/dbus.so
+	strip $(DESTDIR)/$(SBINDIR)/nfblockd
+ifeq ($(DBUS),yes)
+	strip $(DESTDIR)/$(PLUGINDIR)/dbus.so
+endif
 
 dist:
 	rm -rf $(DISTDIR)
