@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <limits.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <errno.h>
