@@ -27,7 +27,7 @@ DBUSCONFDIR ?= /etc/dbus-1/system.d
 PLUGINDIR ?= $(prefix)/lib/nfblock
 
 OBJS=src/nfblockd.o src/stream.o src/blocklist.o src/parser.o
-OPTFLAGS=-ffast-math -Os -fomit-frame-pointer
+OPTFLAGS=-Os
 CFLAGS=-Wall -DVERSION=\"$(VERSION)\" -DPLUGINDIR=\"$(PLUGINDIR)\"
 LDFLAGS=-lnetfilter_queue -lnfnetlink
 CC=gcc
@@ -50,14 +50,11 @@ endif
 ifeq ($(PROFILE),yes)
 CFLAGS+=-pg
 LDFLAGS+=-pg
-else
+endif
 ifeq ($(DEBUG),yes)
 CFLAGS+=-ggdb3
 LDFLAGS+=-ggdb3
 OPTFLAGS=-O0
-else
-LDFLAGS+=-s
-endif
 endif
 
 CFLAGS+=$(OPTFLAGS)
@@ -97,6 +94,9 @@ install:
 	install -D -m 755 src/nfblockd $(SBINDIR)/nfblockd
 	install -D -m 644 dbus-nfblockd.conf $(DBUSCONFDIR)/nfblockd.conf
 	install -D -m 644 src/dbus.so $(PLUGINDIR)/dbus.so
+
+install-strip: install
+	strip $(SBINDIR)/nfblockd $(PLUGINDIR)/dbus.so
 
 dist:
 	rm -rf $(DISTDIR)
