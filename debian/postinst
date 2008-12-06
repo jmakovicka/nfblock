@@ -10,7 +10,8 @@ if test "$1" = "configure"; then
     fi
 
     mkdir -p /var/lib/nfblock
-    wget -P/var/lib/nfblock/ -N $BLOCKLIST_URL
+    ( true && wget -P/var/lib/nfblock/ -N $BLOCKLIST_URL )
+    test /var/lib/nfblock/`basename $BLOCKLIST_URL`
 fi
 
 #DEBHELPER#
