@@ -6,12 +6,14 @@ if test "$1" = "configure"; then
     test -f /etc/default/nfblock && . /etc/default/nfblock
 
     if [ "$ENABLED" = "0" ]; then
-	exit 0
+        exit 0
     fi
 
     mkdir -p /var/lib/nfblock
-    ( true && wget -P/var/lib/nfblock/ -N $BLOCKLIST_URL )
-    test /var/lib/nfblock/`basename $BLOCKLIST_URL`
+
+    if [ -n "$BLOCKLISTPRO_NAMES" ] ; then
+        /usr/lib/nfblock/dl-blocklistpro.pl $BLOCKLISTPRO_NAMES
+    fi
 fi
 
 #DEBHELPER#

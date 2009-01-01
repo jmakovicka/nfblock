@@ -1,7 +1,9 @@
 # do we start nfblockd ?
 ENABLED=1
 # blocklist url
-BLOCKLIST_URL=http://www.bluetack.co.uk/config/nipfilter.dat.gz
+BLOCKLIST_URL=
+# lists to download from blocklistpro.com
+BLOCKLISTPRO_NAMES="907-nipfilter.dat.gz"
 # use DBus ?
 DBUS=1
 # log the hits to the system log ?

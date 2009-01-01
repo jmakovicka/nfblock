@@ -1,5 +1,5 @@
 PKGNAME = nfblock
-VERSION = 0.6
+VERSION = 0.6.1
 
 # Set DBUS to yes if you want to be able to use DBUS.
 
@@ -68,9 +68,11 @@ DISTFILES = \
 	src/parser.c src/parser.h \
 	src/stream.c src/stream.h \
 	src/dbus.c src/dbus.h \
+	src/dl-blocklistpro.pl \
 	dbus-nfblockd.conf ChangeLog README \
 	debian/changelog debian/control debian/copyright \
-	debian/cron.daily debian/default debian/init.d \
+	debian/cron.daily debian/cron.weekly \
+	debian/default debian/init.d \
 	debian/postinst debian/postrm debian/rules \
 
 ifeq ($(DBUS),yes)
@@ -92,6 +94,7 @@ clean:
 
 install:
 	install -D -m 755 src/nfblockd $(DESTDIR)/$(SBINDIR)/nfblockd
+	install -D -m 755 src/dl-blocklistpro.pl $(DESTDIR)/$(PLUGINDIR)/dl-blocklistpro.pl
 ifeq ($(DBUS),yes)
 	install -D -m 644 dbus-nfblockd.conf $(DESTDIR)/$(DBUSCONFDIR)/nfblockd.conf
 	install -D -m 644 src/dbus.so $(DESTDIR)/$(PLUGINDIR)/dbus.so

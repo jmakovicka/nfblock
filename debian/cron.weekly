@@ -1,0 +1,12 @@
+#!/bin/sh
+
+ENABLED=0
+BLOCKLISTPRO_NAMES=
+
+test -f /etc/default/nfblock && . /etc/default/nfblock
+
+if [ "$ENABLED" = "0" -o -z "$BLOCKLISTPRO_NAMES" ]; then
+    exit 0
+fi
+
+/usr/lib/nfblock/dl-blocklistpro.pl $BLOCKLISTPRO_NAMES

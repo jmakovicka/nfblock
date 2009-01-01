@@ -18,9 +18,7 @@ ENABLED=0
 test -f /usr/sbin/nfblockd || exit 0
 test -f /etc/default/nfblock && . /etc/default/nfblock
 
-BLOCKLIST_FILE=$BLOCKLIST_DIR/`basename $BLOCKLIST_URL`
-
-test -f $BLOCKLIST_FILE || exit 0
+BLOCKLIST_FILE="$BLOCKLIST_DIR/*"
 
 if [ "$ENABLED" = "0" ]; then
     echo "$DESC: disabled, see /etc/default/nfblock"

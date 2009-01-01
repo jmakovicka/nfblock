@@ -1,3 +1,9 @@
+2008-12-31  Jindrich Makovicka  <makovick@gmail.com>
+
+	Release 0.6.1
+	
+	* src/dl-blocklistpro.pl: blocklistpro.com downloader
+
 2008-09-06  Jindrich Makovicka  <makovick@gmail.com>
 
 	Modularize the source code
