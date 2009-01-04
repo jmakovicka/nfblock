@@ -637,6 +637,7 @@ static struct option const long_options[] = {
 #ifdef HAVE_DBUS
     {"no-dbus", no_argument, NULL, OPTION_NO_DBUS},
 #endif
+    {0, 0, 0, 0}
 };
 
 void
