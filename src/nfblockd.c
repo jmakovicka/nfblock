@@ -513,19 +513,19 @@ install_sighandler()
         perror("Error setting signal handler for SIGUSR1\n");
         return -1;
     }
-    if ( sigaction(SIGHUP, &sa, NULL) < 0 ) {
+    if (sigaction(SIGHUP, &sa, NULL) < 0) {
         perror("Error setting signal handler for SIGHUP\n");
         return -1;
     }
-    if ( sigaction(SIGTERM, &sa, NULL) < 0 ) {
+    if (sigaction(SIGTERM, &sa, NULL) < 0) {
         perror("Error setting signal handler for SIGTERM\n");
         return -1;
     }
-    if ( sigaction(SIGINT, &sa, NULL) < 0 ) {
+    if (sigaction(SIGINT, &sa, NULL) < 0) {
         perror("Error setting signal handler for SIGINT\n");
         return -1;
     }
-    if ( sigaction(SIGSEGV, &sa, NULL) < 0 ) {
+    if (sigaction(SIGSEGV, &sa, NULL) < 0) {
         perror("Error setting signal handler for SIGABRT\n");
         return -1;
     }
