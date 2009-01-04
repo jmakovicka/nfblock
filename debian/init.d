@@ -29,7 +29,7 @@ case "$1" in
     start)
 	echo -n "Starting $DESC:"
 	echo -n " nfblockd"
-	NFBLOCKD_ARGS="-d $BLOCKLIST_FILE"
+	NFBLOCKD_ARGS="-d $BLOCKLIST_FILE -p $PIDFILE"
 	if [ "$DBUS" = "0" ]; then
 	    NFBLOCKD_ARGS="$NFBLOCKD_ARGS --no-dbus"
 	fi
@@ -50,6 +50,7 @@ case "$1" in
 	echo -n "Reloading $DESC:"
 	echo -n " nfblockd"
 	start-stop-daemon --stop --quiet --pidfile $PIDFILE --signal HUP --exec $DAEMON
+	echo "."
 	;;
     restart)
 	$0 stop
