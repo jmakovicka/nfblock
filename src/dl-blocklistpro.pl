@@ -5,7 +5,25 @@
 use strict;
 
 foreach my $arg (@ARGV) {
-    my $url = "http://blocklistpro.com/download-center/start-download/ip-filters/" . $arg . ".html";
+    my $url_list = "http://blocklistpro.com/download-center/ip-filters/";
+    my $url_detail;
+
+    open(PAGE, "wget -q -O- $url_list |");
+
+    while (my $ln = <PAGE>) {
+        if ($ln =~ /download limit has been reached/) {
+            die "download limit reached"
+        }
+        if ($ln =~ /href=\"(http:\/\/.+\/ip-filters\/[0-9]+-(\S+)\.html)\"/) {
+	    if ($2 == $arg) {
+		$url_detail = $1;
+		last;
+	    }
+        }
+    }
+
+    my $url = $url_detail;
+    $url =~ s/view-details/start-download/;
     my $path = "/var/lib/nfblock";
     my $url2 = "";
     my $outfile;
