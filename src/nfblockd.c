@@ -403,7 +403,7 @@ static void
 nfqueue_unbind()
 {
     if (!nfqueue_h)
-	return;
+        return;
 
     do_log(LOG_INFO, "NFQUEUE: unbinding from queue 0");
     nfq_destroy_queue(nfqueue_qh);
@@ -422,7 +422,7 @@ nfqueue_loop ()
     struct pollfd fds[1];
 
     if (nfqueue_bind() < 0)
-	return -1;
+        return -1;
 
     nh = nfq_nfnlh(nfqueue_h);
     fd = nfnl_fd(nh);
@@ -435,12 +435,20 @@ nfqueue_loop ()
 
         curtime = time(NULL);
 
-        if (rv < 0)
+        if (rv < 0) {
+            if (errno == EINTR)
+                continue;
+            do_log(LOG_ERR, "Error waiting for socket: %s", strerror(errno));
             goto out;
+        }
         if (rv > 0) {
             rv = recv(fd, buf, sizeof(buf), 0);
-            if (rv < 0)
+            if (rv < 0) {
+                if (errno == EINTR)
+                    continue;
+                do_log(LOG_ERR, "Error reading from socket: %s", strerror(errno));
                 goto out;
+            }
             if (rv >= 0)
                 nfq_handle_packet(nfqueue_h, buf, rv);
         }
@@ -454,6 +462,7 @@ nfqueue_loop ()
                 blocklist_stats(&blocklist);
                 if (load_all_lists() < 0)
                     do_log(LOG_ERR, "Cannot load the blocklist");
+                do_log(LOG_INFO, "Blocklist reloaded");
                 break;
             case CMD_QUIT:
                 goto out;
@@ -481,11 +490,11 @@ sighandler(int sig, siginfo_t *info, void *context)
     case SIGTERM:
     case SIGINT:
         command = CMD_QUIT;
-	break;
+        break;
     case SIGSEGV:
-	nfqueue_unbind();
-	abort();
-	break;
+        nfqueue_unbind();
+        abort();
+        break;
     default:
         break;
     }
@@ -659,9 +668,9 @@ main(int argc, char *argv[])
 
     while ((opt = getopt_long(argc, argv, "q:a:r:dbp:f:v"
 #ifndef LOWMEM
-			      "c:"
+                              "c:"
 #endif
-			      , long_options, NULL)) != -1) {
+                              , long_options, NULL)) != -1) {
         switch (opt) {
         case 'd':
             opt_daemon = 1;
