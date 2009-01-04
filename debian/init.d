@@ -36,14 +36,14 @@ case "$1" in
 	if [ "$SYSLOG" = "0" ]; then
 	    NFBLOCKD_ARGS="$NFBLOCKD_ARGS --no-syslog"
 	fi
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- $NFBLOCKD_ARGS \
+	start-stop-daemon --start --quiet --oknodo --pidfile $PIDFILE --exec $DAEMON -- $NFBLOCKD_ARGS \
 	    < /dev/null
 	echo "."
 	;;
     stop)
 	echo -n "Stopping $DESC:"
 	echo -n " nfblockd"
-	start-stop-daemon --stop --quiet --pidfile $PIDFILE --exec $DAEMON
+	start-stop-daemon --stop --quiet --oknodo --pidfile $PIDFILE --exec $DAEMON
 	echo "."
 	;;
     reload|force-reload)
