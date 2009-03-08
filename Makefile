@@ -1,5 +1,5 @@
 PKGNAME = nfblock
-VERSION = 0.6.1
+VERSION = 0.6.2
 
 # Set DBUS to yes if you want to be able to use DBUS.
 
