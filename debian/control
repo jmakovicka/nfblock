@@ -2,12 +2,12 @@ Source: nfblock
 Section: net
 Priority: optional
 Maintainer: Jindrich Makovicka <makovick@gmail.com>
-Build-Depends: debhelper (>= 4.1.0), zlib1g-dev, libnetfilter-queue-dev, libnfnetlink-dev, libdbus-1-dev, wget, perl
+Build-Depends: debhelper (>= 4.1.0), zlib1g-dev, libnetfilter-queue-dev, libnfnetlink-dev, libdbus-1-dev
 Standards-Version: 3.6.1.1
 
 Package: nfblock
 Architecture: any
-Depends: wget, ${shlibs:Depends}
+Depends: wget, unzip, ${shlibs:Depends}
 Description: Netfilter blocklist daemon
   Filters the incoming or outgoing packets based on block list files.
   Can use IPFilter or PeerGuardian block lists.

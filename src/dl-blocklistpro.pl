@@ -2,23 +2,27 @@
 
 # Download from blocklistpro.com
 
+use File::Temp qw/ tempfile tempdir /;
+
 use strict;
+
+my $ua = "Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.0.5) Gecko/2008122406 Gentoo Firefox/3.0.5";
 
 foreach my $arg (@ARGV) {
     my $url_list = "http://blocklistpro.com/download-center/ip-filters/";
     my $url_detail;
 
-    open(PAGE, "wget -q -O- $url_list |");
+    open(PAGE, "wget -q -U \"$ua\" -O- $url_list |");
 
     while (my $ln = <PAGE>) {
         if ($ln =~ /download limit has been reached/) {
             die "download limit reached"
         }
-        if ($ln =~ /href=\"(http:\/\/.+\/ip-filters\/[0-9]+-(\S+)\.html)\"/) {
-	    if ($2 == $arg) {
-		$url_detail = $1;
-		last;
-	    }
+        if ($ln =~ /href=\"(http:\/\/.+\/p2p-ip-filters\/[0-9]+-(\S+)\.html)\"/) {
+            if ($2 eq $arg) {
+                $url_detail = $1;
+                last;
+            }
         }
     }
 
@@ -36,7 +40,7 @@ foreach my $arg (@ARGV) {
 
     $outfile = $path . "/" . $outfile;
 
-    open(PAGE, "wget -q -O- $url |");
+    open(PAGE, "wget -U \"$ua\" -O- $url |");
 
     while (my $ln = <PAGE>) {
         if ($ln =~ /download limit has been reached/) {
@@ -54,8 +58,22 @@ foreach my $arg (@ARGV) {
 
     my $tmpfile = $outfile . ".tmp";
 
-    if (system("wget -q -O $tmpfile \"$url2\"") == 0) {
-        rename($tmpfile, $outfile);
+    if (system("wget -q -U \"$ua\" -O $tmpfile \"$url2\"") == 0) {
+        if ($outfile =~ /^(.*)\.zip$/) {
+            my $tmpdir = tempdir();
+            system("unzip $tmpfile -d $tmpdir");
+            my @files = <$tmpdir/*>;
+            if ($#files == -1) {
+                print STDERR "no files in the zip file";
+            } else {
+                system("gzip -c9 $files[0] > $1.dat.gz");
+                unlink(@files);
+            }
+            unlink($tmpdir);
+            unlink($tmpfile);
+        } else {
+            rename($tmpfile, $outfile);
+        }
     } else {
         unlink($tmpfile);
     }

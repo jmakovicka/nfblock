@@ -1,3 +1,10 @@
+nfblock (0.6.2-1) unstable; urgency=low
+
+  * New upstream release
+  * blocklistpro.com downloader update
+
+ -- Jindrich Makovicka <makovick@gmail.com>  Sun, 08 Mar 2009 10:24:42 +0100
+
 nfblock (0.6.1-1) unstable; urgency=low
 
   * New upstream release

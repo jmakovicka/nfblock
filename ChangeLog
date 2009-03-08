@@ -1,53 +1,58 @@
+2009-03-08  Jindrich Makovicka  <makovick@gmail.com>
+
+	Release 0.6.2
+
+	* src/dl-blocklistpro.pl: updates
+
 2008-12-31  Jindrich Makovicka  <makovick@gmail.com>
 
-	Release 0.6.1
-	
-	* src/dl-blocklistpro.pl: blocklistpro.com downloader
+        Release 0.6.1
+
+        * src/dl-blocklistpro.pl: blocklistpro.com downloader
 
 2008-09-06  Jindrich Makovicka  <makovick@gmail.com>
 
-	Modularize the source code
-	
-	Make zlib support optional
-	
-	Low memory compilation flag for embedded devices
-	
-	Character set conversion
+        Modularize the source code
+
+        Make zlib support optional
+
+        Low memory compilation flag for embedded devices
+
+        Character set conversion
 
 2008-07-13  Jindrich Makovicka  <makovick@gmail.com>
 
-	* dbus.c: Add D-Bus support
+        * dbus.c: Add D-Bus support
 
 2008-05-31  Jindrich Makovicka  <makovick@gmail.com>
 
-	* nfblockd.c: Pidfile support
+        * nfblockd.c: Pidfile support
 
-	Ignore duplicate range names on merging
+        Ignore duplicate range names on merging
 
-	Benchmarking
+        Benchmarking
 
 2008-04-15  Jindrich Makovicka  <makovick@gmail.com>
 
-	* nfblockd.c: Fix PeerGuardian Ascii autodetection
-	* Makefile: Bump version to 0.4
+        * nfblockd.c: Fix PeerGuardian Ascii autodetection
+        * Makefile: Bump version to 0.4
 
 2007-08-30  Jindrich Makovicka  <makovick@gmail.com>
 
-	Release 0.3
+        Release 0.3
 
-	Multiple blocklists support
+        Multiple blocklists support
 
-	Blocklist loading fixes
+        Blocklist loading fixes
 
 2007-08-25  Jindrich Makovicka  <makovick@gmail.com>
 
-	Release 0.2
-	
-	* nfblockd.c: Reduce startup verbosity
+        Release 0.2
 
-	More Debian related stuff - Pre/Postinst, cron, init.d
-	
+        * nfblockd.c: Reduce startup verbosity
+
+        More Debian related stuff - Pre/Postinst, cron, init.d
+
 2007-08-12  Jindrich Makovicka  <makovick@gmail.com>
 
-	Initial release 0.1
-
+        Initial release 0.1
