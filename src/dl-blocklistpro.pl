@@ -40,7 +40,7 @@ foreach my $arg (@ARGV) {
 
     $outfile = $path . "/" . $outfile;
 
-    open(PAGE, "wget -U \"$ua\" -O- $url |");
+    open(PAGE, "wget -q -U \"$ua\" -O- $url |");
 
     while (my $ln = <PAGE>) {
         if ($ln =~ /download limit has been reached/) {
