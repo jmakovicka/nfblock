@@ -32,6 +32,7 @@
 #define IP_STRING_SIZE 16
 
 void do_log(int priority, const char *format, ...);
+typedef void (*log_func_t) (int priority, const char *format, ...);
 
 void ip2str(char *dst, uint32_t ip);
 
@@ -42,6 +43,6 @@ void ip2str(char *dst, uint32_t ip);
                    __func__, __FILE__, __LINE__);                       \
             exit (-1);                                                  \
         }                                                               \
-    } while(0);                                                                 \
+    } while(0);                                                         \
 
 #endif

@@ -24,27 +24,32 @@
    Boston, MA 02110-1301, USA.
 */
 
+
 #ifndef NFBLOCKD_DBUS_H
 #define NFBLOCKD_DBUS_H
 
-/* nfblockd dbus protocol */
-#define NFBP_ACTION_MARK 'm'
-#define NFBP_ACTION_DROP 'd'
-#define NFBP_IPv4_BIN 0x0
+#include <stdbool.h>
+#include <inttypes.h>
+#include <time.h>
+#include <dbus/dbus.h>
 
-#define FMT_ADDR_RANGES_HITS "arh"
-#define ADDR 'a'
-#define RANGES 'r'
-#define HITS 'h'
+#include "blocklist.h"
+#include "nfblockd.h"
 
-#define NFB_RANGES_MAX 255
+#define NFB_DBUS_PUBLIC_NAME "org.netfilter.nfblock"
 
 typedef enum {
     LOG_NF_IN,
     LOG_NF_OUT,
-    LOG_NF_FWD,
+/*    LOG_NF_FWD,*/
 } dbus_log_message_t;
 
-typedef void (*log_func_t) (int priority, const char *format, ...);
+typedef int (*nfblock_dbus_init_t)(log_func_t do_log);
+
+typedef int (*nfblock_dbus_send_blocked_t)(log_func_t do_log, time_t curtime,
+                                           dbus_log_message_t signal,
+                                           bool dropped, char *addr,
+                                           block_sub_entry_t **ranges,
+                                           uint32_t hits);
 
 #endif
