@@ -53,8 +53,6 @@
 #include "parser.h"
 #include "nfblockd.h"
 
-//#include "stream.h"
-
 #define likely(x)       __builtin_expect((x),1)
 #define unlikely(x)     __builtin_expect((x),0)
 
@@ -146,7 +144,7 @@ open_dbus()
     dlerror(); // clear the error flag
 
     do_dlsym(nfblock_dbus_init);
-	do_dlsym(nfblock_dbus_send_blocked);	
+    do_dlsym(nfblock_dbus_send_blocked);
 
     return 0;
 
@@ -232,15 +230,15 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 status = nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
                 src->hits++;
                 if (src->lasttime < curtime - MIN_INTERVAL) {
-                	ip2str(buf1, ip_src);
+                    ip2str(buf1, ip_src);
 #ifdef HAVE_DBUS
                     if (use_dbus) {
-                        nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_IN, reject_mark ? false : true,
-                                                      buf1, sranges, src->hits);
+                        nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_IN,
+                                                  reject_mark ? false : true,
+                                                  buf1, sranges, src->hits);
                     }
 #endif
                     if (use_syslog) {
-                        
 #ifndef LOWMEM
                         do_log(LOG_NOTICE, "Blocked IN: %s, hits: %d, SRC: %s",
                                sranges[0]->name, src->hits, buf1);
@@ -276,8 +274,9 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                     ip2str(buf1, ip_dst);
 #ifdef HAVE_DBUS
                     if (use_dbus) {
-                        nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_OUT, reject_mark ? false : true,
-                                                      buf1, dranges, dst->hits);
+                        nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_OUT,
+                                                  reject_mark ? false : true,
+                                                  buf1, dranges, dst->hits);
                     }
 #endif
                     if (use_syslog) {
@@ -326,23 +325,24 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                     dst->lasttime = curtime;
                 }
                 if (lasttime < curtime - MIN_INTERVAL) {
-                	ip2str(buf1, ip_src);
+                    ip2str(buf1, ip_src);
                     ip2str(buf2, ip_dst);
 #ifdef HAVE_DBUS
                     if (use_dbus) {
-                    	if (src) {
-		                    nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_IN, reject_mark ? false : true,
-		                                                  buf1, sranges, src->hits);
-		                }
-		                if (dst) {
-                        	nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_OUT, reject_mark ? false : true,
+                        if (src) {
+                            nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_IN,
+                                                      reject_mark ? false : true,
+                                                      buf1, sranges, src->hits);
+                        }
+                        if (dst) {
+                            nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_OUT, reject_mark ? false : true,
                                                       buf2, dranges, dst->hits);
                         }
 /*
                         nfblock_dbus_send_signal_nfq(do_log, curtime, LOG_NF_FWD, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
-                                                      FMT_ADDR_RANGES_HITS, ip_src, src ? sranges : NULL, src ? src->hits : 0,
-                                                      FMT_ADDR_RANGES_HITS, ip_dst, dst ? dranges : NULL, dst ? dst->hits : 0,
-                                                      (char *)NULL);
+                                                     FMT_ADDR_RANGES_HITS, ip_src, src ? sranges : NULL, src ? src->hits : 0,
+                                                     FMT_ADDR_RANGES_HITS, ip_dst, dst ? dranges : NULL, dst ? dst->hits : 0,
+                                                     (char *)NULL);
 */
                     }
 #endif
@@ -350,8 +350,8 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 
 #ifndef LOWMEM
                         do_log(LOG_NOTICE, "Blocked FWD: %s->%s, hits: %d,%d, SRC: %s, DST: %s",
-                                        src ? sranges[0]->name : "(unknown)", dst ? dranges[0]->name : "(unknown)",
-                                        src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
+                               src ? sranges[0]->name : "(unknown)", dst ? dranges[0]->name : "(unknown)",
+                               src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
 #else
                         do_log(LOG_NOTICE, "Blocked FWD: hits: %d,%d, SRC: %s, DST: %s",
                                src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
@@ -564,7 +564,8 @@ create_pidfile(const char *name)
     fflush(f);
 
     /* leave fd open as long as daemon is running */
-    /* this is useful for example so that inotify can catch a file closed event even if daemon is killed */
+    /* this is useful for example so that inotify can catch a file
+     * closed event even if daemon is killed */
     return f;
 }
 
