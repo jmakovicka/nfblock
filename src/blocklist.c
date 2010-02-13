@@ -28,6 +28,7 @@
 #include <string.h>
 #include <syslog.h>
 #include <errno.h>
+#include <assert.h>
 
 void
 blocklist_init(blocklist_t *blocklist)
@@ -345,10 +346,13 @@ blocklist_dump(blocklist_t *blocklist)
             printf("%d - %s-%s is a composite range:\n", i, buf1, buf2);
             for (j = e->merged_idx; j < blocklist->subcount; j++) {
                 block_sub_entry_t *s = &blocklist->subentries[j];
-                if (s->ip_max > s->ip_max) break;
+                if (s->ip_min > e->ip_max) break;
                 ip2str(buf1, s->ip_min);
                 ip2str(buf2, s->ip_max);
                 printf("  Sub-Range: %s-%s - %s\n", buf1, buf2, s->name);
+                if (s->ip_max > e->ip_max) {
+                    printf("  Partial overlap, should not happen!\n");
+                }
             }
         }
 #else
