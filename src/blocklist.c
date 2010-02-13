@@ -307,11 +307,17 @@ blocklist_find(blocklist_t *blocklist, uint32_t ip,
     cnt = 0;
     for (i = ret->merged_idx; i < blocklist->subcount; i++) {
         block_sub_entry_t * e = &blocklist->subentries[i];
+        if (e->ip_min > ret->ip_max)
+            break;
         if (cnt >= max)
             break;
         if (e->ip_min <= ip && e->ip_max >= ip)
             sub[cnt++] = e;
     }
+
+    if (cnt == 0)
+        do_log(LOG_ERR, "No sub-entries found, should not happen!");
+
     sub[cnt] = 0;
     return ret;
 }
