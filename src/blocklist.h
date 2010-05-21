@@ -45,14 +45,14 @@ static inline int iconv_close(iconv_t cd)
 #define MAX_LABEL_LENGTH 255
 
 #ifndef LOWMEM
-typedef struct
+typedef struct block_sub_entry_t
 {
     uint32_t ip_min, ip_max;
     char *name;
 } block_sub_entry_t;
 #endif
 
-typedef struct
+typedef struct block_entry_t
 {
     /* must start with sub-entry */
     uint32_t ip_min, ip_max;
@@ -67,7 +67,7 @@ typedef struct
     time_t lasttime;
 } block_entry_t;
 
-typedef struct
+typedef struct blocklist_t
 {
     block_entry_t *entries;
     unsigned int count, size;
