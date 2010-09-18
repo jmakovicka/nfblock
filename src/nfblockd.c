@@ -387,6 +387,13 @@ nfqueue_bind()
         return -1;
     }
 
+    do_log(LOG_INFO, "Unbinding existing nf_queue handler for AF_INET (if any)");
+    if (nfq_unbind_pf(nfqueue_h, AF_INET) < 0) {
+        do_log(LOG_ERR, "Error during nfq_unbind_pf(): %s", strerror(errno));
+        return -1;
+    }
+
+    do_log(LOG_INFO, "Binding nfnetlink_queue as nf_queue handler for AF_INET");
     if (nfq_bind_pf(nfqueue_h, AF_INET) < 0) {
         do_log(LOG_ERR, "Error during nfq_bind_pf(): %s", strerror(errno));
         nfq_close(nfqueue_h);
