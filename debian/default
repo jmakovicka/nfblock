@@ -3,7 +3,7 @@ ENABLED=1
 # blocklist url
 BLOCKLIST_URL=
 # lists to download from blocklistpro.com
-BLOCKLISTPRO_NAMES="nipfilter.zip"
+BLOCKLISTPRO_NAMES="nipfilter"
 # use DBus ?
 DBUS=1
 # log the hits to the system log ?

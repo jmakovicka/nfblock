@@ -7,6 +7,7 @@ use File::Temp qw/ tempfile tempdir /;
 use strict;
 
 my $ua = "Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.0.5) Gecko/2008122406 Gentoo Firefox/3.0.5";
+my @suff = ("", ".dat.gz", ".gz", ".zip");
 
 foreach my $arg (@ARGV) {
     my $url_list = "http://blocklistpro.com/download-center/ip-filters/";
@@ -14,16 +15,24 @@ foreach my $arg (@ARGV) {
 
     open(PAGE, "wget -q -U \"$ua\" -O- $url_list |");
 
+  OUTER:
     while (my $ln = <PAGE>) {
         if ($ln =~ /download limit has been reached/) {
             die "download limit reached"
         }
         if ($ln =~ /href=\"(http:\/\/.+\/p2p-ip-filters\/[0-9]+-(\S+)\.html)\"/) {
-            if ($2 eq $arg) {
-                $url_detail = $1;
-                last;
+            foreach my $s (@suff) {
+                if ($2 eq $arg . $s) {
+                    $url_detail = $1;
+                    $arg = $2;
+                    last OUTER;
+                }
             }
         }
+    }
+
+    if (length($url_detail) == 0) {
+        die "cannot find the detail url";
     }
 
     my $url = $url_detail;
