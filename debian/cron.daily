@@ -16,4 +16,6 @@ if [ -n "$BLOCKLIST_URL" ] ; then
     for N in $BLOCKLIST_URL ; do
         wget -q -N -P "$LIST_PATH" "$N"
     done
+
+    /etc/init.d/nfblock reload
 fi

@@ -20,3 +20,7 @@ if [ -n "$IBLOCKLIST_NAMES" ] ; then
         wget -q -O "$LIST_PATH/$N.gz" "http://list.iblocklist.com/?list=$N&fileformat=p2p&archiveformat=gz"
     done
 fi
+
+if [ -n "$BLOCKLISTPRO_NAMES" -o -n "$IBLOCKLIST_NAMES" ] ; then
+    /etc/init.d/nfblock reload
+fi
