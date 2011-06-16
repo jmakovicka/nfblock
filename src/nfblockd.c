@@ -197,6 +197,14 @@ load_all_lists()
     return ret;
 }
 
+static void
+check_set_verdict_status(int status)
+{
+    if (unlikely(status < 0)) {
+        do_log(LOG_ERR, "Error setting nfqueue verdict");
+    }
+}
+
 #define MAX_RANGES 16
 static int
 nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
@@ -228,6 +236,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 // we drop the packet instead of rejecting
                 // we don't want the other host to know we are alive
                 status = nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+                check_set_verdict_status(status);
                 src->hits++;
                 if (src->lasttime < curtime - MIN_INTERVAL) {
                     ip2str(buf1, ip_src);
@@ -253,9 +262,11 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 // we set the user-defined accept_mark and set NF_REPEAT verdict
                 // it's up to other iptables rules to decide what to do with this marked packet
                 status = nfq_set_verdict_mark(qh, id, NF_REPEAT, accept_mark, 0, NULL);
+                check_set_verdict_status(status);
             } else {
                 // no accept_mark, just NF_ACCEPT the packet
                 status = nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+                check_set_verdict_status(status);
             }
             break;
         case NF_IP_LOCAL_OUT:
@@ -266,8 +277,10 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                     // we set the user-defined reject_mark and set NF_REPEAT verdict
                     // it's up to other iptables rules to decide what to do with this marked packet
                     status = nfq_set_verdict_mark(qh, id, NF_REPEAT, reject_mark, 0, NULL);
+                    check_set_verdict_status(status);
                 } else {
                     status = nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+                    check_set_verdict_status(status);
                 }
                 dst->hits++;
                 if (dst->lasttime < curtime - MIN_INTERVAL) {
@@ -294,9 +307,11 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 // we set the user-defined accept_mark and set NF_REPEAT verdict
                 // it's up to other iptables rules to decide what to do with this marked packet
                 status = nfq_set_verdict_mark(qh, id, NF_REPEAT, accept_mark, 0, NULL);
+                check_set_verdict_status(status);
             } else {
                 // no accept_mark, just NF_ACCEPT the packet
                 status = nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+                check_set_verdict_status(status);
             }
             break;
         case NF_IP_FORWARD:
@@ -310,8 +325,10 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                     // we set the user-defined reject_mark and set NF_REPEAT verdict
                     // it's up to other iptables rules to decide what to do with this marked packet
                     status = nfq_set_verdict_mark(qh, id, NF_REPEAT, reject_mark, 0, NULL);
+                    check_set_verdict_status(status);
                 } else {
                     status = nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+                    check_set_verdict_status(status);
                 }
                 if (src) {
                     src->hits++;
@@ -362,9 +379,11 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 // we set the user-defined accept_mark and set NF_REPEAT verdict
                 // it's up to other iptables rules to decide what to do with this marked packet
                 status = nfq_set_verdict_mark(qh, id, NF_REPEAT, accept_mark, 0, NULL);
+                check_set_verdict_status(status);
             } else {
                 // no accept_mark, just NF_ACCEPT the packet
                 status = nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+                check_set_verdict_status(status);
             }
             break;
         default:
