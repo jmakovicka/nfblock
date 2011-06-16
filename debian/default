@@ -1,10 +1,17 @@
 # do we start nfblockd ?
 ENABLED=1
+
 # blocklist url
-BLOCKLIST_URL=
+# BLOCKLIST_URL=
+
 # lists to download from blocklistpro.com
-BLOCKLISTPRO_NAMES="nipfilter"
+# BLOCKLISTPRO_NAMES="nipfilter"
+
+# lists to download from iblocklist.com
+IBLOCKLIST_NAMES="bt_level1"
+
 # use DBus ?
 DBUS=1
+
 # log the hits to the system log ?
 SYSLOG=1

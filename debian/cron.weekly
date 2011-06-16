@@ -3,10 +3,20 @@
 ENABLED=0
 BLOCKLISTPRO_NAMES=
 
+LIST_PATH=/var/lib/nfblock
+
 test -f /etc/default/nfblock && . /etc/default/nfblock
 
-if [ "$ENABLED" = "0" -o -z "$BLOCKLISTPRO_NAMES" ]; then
+if [ "$ENABLED" = "0" ]; then
     exit 0
 fi
 
-/usr/lib/nfblock/dl-blocklistpro.pl $BLOCKLISTPRO_NAMES
+if [ -n "$BLOCKLISTPRO_NAMES" ] ; then
+    /usr/lib/nfblock/dl-blocklistpro.pl $BLOCKLISTPRO_NAMES
+fi
+
+if [ -n "$IBLOCKLIST_NAMES" ] ; then
+    for N in $IBLOCKLIST_NAMES ; do
+        wget -q -O "$LIST_PATH/$N.gz" "http://list.iblocklist.com/?list=$N&fileformat=p2p&archiveformat=gz"
+    done
+fi

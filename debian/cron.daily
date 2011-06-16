@@ -3,10 +3,17 @@
 ENABLED=0
 BLOCKLIST_URL=
 
+LIST_PATH=/var/lib/nfblock
+
 test -f /etc/default/nfblock && . /etc/default/nfblock
 
-if [ "$ENABLED" = "0" -o -z "$BLOCKLIST_URL" ]; then
+if [ "$ENABLED" = "0" ]; then
     exit 0
 fi
 
-wget -q -P/var/lib/nfblock/ -N $BLOCKLIST_URL
+
+if [ -n "$BLOCKLIST_URL" ] ; then
+    for N in $BLOCKLIST_URL ; do
+        wget -q -N -P "$LIST_PATH" "$N"
+    done
+fi
