@@ -32,6 +32,8 @@ CFLAGS=-Wall -DVERSION=\"$(VERSION)\" -DPLUGINDIR=\"$(PLUGINDIR)\"
 LIBS=-lnetfilter_queue -lnfnetlink
 CC=gcc
 
+LDFLAGS=-Wl,--as-needed
+
 ifeq ($(LOWMEM),yes)
 DBUS=no
 CFLAGS+=-DLOWMEM
@@ -88,7 +90,7 @@ src/nfblockd: $(OBJS)
 	gcc -o $@ $(LDFLAGS) $^ $(LIBS)
 
 src/dbus.so: src/dbus.o
-	$(CC) -shared -Wl `pkg-config dbus-1 --libs` -o $@ $^
+	$(CC) -shared $(LDFLAGS) -Wl `pkg-config dbus-1 --libs` -o $@ $^
 clean:
 	rm -f *~ src/*.o src/*~ src/nfblockd src/dbus.so
 
