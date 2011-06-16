@@ -69,7 +69,6 @@ stream_close(stream_t *stream)
 {
     if (stream->compressed) {
         if (!stream->eos) {
-            do_log(LOG_INFO, "Error finishing decompression");
             inflateEnd(&stream->strm);
         }
         if (fclose(stream->f) < 0) {
