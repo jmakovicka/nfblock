@@ -22,5 +22,5 @@ if [ -n "$IBLOCKLIST_NAMES" ] ; then
 fi
 
 if [ -n "$BLOCKLISTPRO_NAMES" -o -n "$IBLOCKLIST_NAMES" ] ; then
-    /etc/init.d/nfblock reload
+    invoke-rc.d nfblock reload
 fi
