@@ -97,7 +97,7 @@ do_log(int priority, const char *format, ...)
     va_list ap;
 
     if (priority == LOG_DEBUG && opt_verbose < 1)
-        goto noprint;
+        return;
 
     if (!daemonized) {
         va_start(ap, format);
@@ -105,7 +105,7 @@ do_log(int priority, const char *format, ...)
         fprintf(stderr, "\n");
         va_end(ap);
     }
-noprint:
+
     if (opt_daemon) {
         va_start(ap, format);
         vsyslog(priority, format, ap);
