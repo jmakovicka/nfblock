@@ -153,7 +153,7 @@ stream_getline(char *buf, int max, stream_t *stream)
     } else {
         char *ret;
         ret = fgets(buf, max, stream->f);
-        if (!ret)
+        if (!ret && ferror(stream->f))
             do_log(LOG_INFO, "Error reading file");
         return ret;
     }
