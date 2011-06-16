@@ -53,6 +53,7 @@ binary-indep: build install
 binary-arch: build install
 	dh_testdir
 	dh_testroot
+	dh_installdebconf
 	dh_installdocs README
 	dh_installinit -- start 20 2 3 4 5 . stop 80 0 1 6 .
 	dh_installcron

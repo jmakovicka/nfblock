@@ -1,5 +1,7 @@
 #!/bin/sh -e
 
+. /usr/share/debconf/confmodule
+
 if test "$1" = "configure"; then
     ENABLED=0
 
@@ -8,14 +10,22 @@ if test "$1" = "configure"; then
     test -f /etc/default/nfblock && . /etc/default/nfblock
 
     if [ "$ENABLED" = "0" ]; then
+        db_stop
         exit 0
     fi
 
-    /etc/cron.daily/nfblock
-    /etc/cron.weekly/nfblock
+    db_get 'nfblock/download-blocklist' || true
+
+    if [ "$RET" = "true" ]; then
+        echo "Downloading, please wait..."
+        /etc/cron.daily/nfblock
+        /etc/cron.weekly/nfblock
+        echo "Downloading complete."
+    fi
 
 fi
 
 #DEBHELPER#
 
+db_stop
 exit 0

@@ -1,0 +1,10 @@
+Template: nfblock/download-blocklist
+Type: boolean
+Default: true
+Description: Download blocklist file now?
+ .
+ NFblock needs a blocklist file to operate. This file contains a list
+ of IP address ranges that are forbidden to connect to your machine.
+ .
+ If you say "Yes", current blocklists will be downloaded from the
+ internet right now as the package is installed. This is recommended.
