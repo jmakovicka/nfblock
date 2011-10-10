@@ -17,7 +17,13 @@ fi
 
 if [ -n "$IBLOCKLIST_NAMES" ] ; then
     for N in $IBLOCKLIST_NAMES ; do
-        wget -q -O "$LIST_PATH/$N.gz" "http://list.iblocklist.com/?list=$N&fileformat=p2p&archiveformat=gz"
+        FNAME="$LIST_PATH/$N.gz"
+        if ! wget -q -O "$FNAME".tmp "http://list.iblocklist.com/?list=$N&fileformat=p2p&archiveformat=gz" ; then
+            echo Error downloading from iblocklist: $N
+            rm -f "$FNAME".tmp
+            exit
+        fi
+        mv "$FNAME".tmp "$FNAME"
     done
 fi
 
