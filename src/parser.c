@@ -147,7 +147,8 @@ loadlist_p2p(blocklist_t *blocklist, const char *filename, const char *charset)
             continue;
         }
         *colon = '\0';
-        sscanf(name, "%199s", buf);
+        strncpy(name, buf, sizeof(name));
+        name[sizeof(name) - 1] = '\0';
         n = sscanf(colon + 1, "%hhu.%hhu.%hhu.%hhu-%hhu.%hhu.%hhu.%hhu",
                    &ip1.b[0], &ip1.b[1], &ip1.b[2], &ip1.b[3],
                    &ip2.b[0], &ip2.b[1], &ip2.b[2], &ip2.b[3]);
