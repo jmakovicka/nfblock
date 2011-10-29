@@ -27,6 +27,7 @@ DBUSCONFDIR ?= /etc/dbus-1/system.d
 PLUGINDIR ?= $(prefix)/lib/nfblock
 
 OBJS=src/nfblockd.o src/stream.o src/blocklist.o src/parser.o
+TEST_OBJS=src/test.o src/stream.o src/blocklist.o src/parser.o
 OPTFLAGS=-Os
 CFLAGS=-Wall -DVERSION=\"$(VERSION)\" -DPLUGINDIR=\"$(PLUGINDIR)\"
 LIBS=-lnetfilter_queue -lnfnetlink
@@ -71,6 +72,7 @@ DISTFILES = \
 	src/stream.c src/stream.h \
 	src/dbus.c src/dbus.h \
 	src/dl-blocklistpro.pl \
+	src/test.c \
 	dbus-nfblockd.conf ChangeLog README \
 	debian/changelog debian/control debian/copyright \
 	debian/cron.daily debian/cron.weekly \
@@ -78,15 +80,18 @@ DISTFILES = \
 	debian/postinst debian/postrm debian/rules \
 
 ifeq ($(DBUS),yes)
-all: src/nfblockd src/dbus.so
+all: src/nfblockd src/test src/dbus.so
 else
-all: src/nfblockd
+all: src/nfblockd src/test
 endif
 
 .c.o:
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 src/nfblockd: $(OBJS)
+	gcc -o $@ $(LDFLAGS) $^ $(LIBS)
+
+src/test: $(TEST_OBJS)
 	gcc -o $@ $(LDFLAGS) $^ $(LIBS)
 
 src/dbus.so: src/dbus.o
