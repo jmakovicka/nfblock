@@ -29,6 +29,7 @@
 #include <syslog.h>
 #include <errno.h>
 #include <assert.h>
+#include <arpa/inet.h>
 
 void
 blocklist_init(blocklist_t *blocklist)
@@ -171,6 +172,7 @@ blocklist_trim(blocklist_t *blocklist)
                 ip_max = blocklist->entries[j].ip_max;
         }
         if (j > i + 1) {
+            uint32_t ip1, ip2;
             char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
             char *tmp = malloc(32 * (j - i + 1) + 1);
             CHECK_OOM(tmp);
@@ -178,13 +180,17 @@ blocklist_trim(blocklist_t *blocklist)
             tmp[0] = 0;
             for (k = i; k < j; k++) {
                 char tmp2[33];
-                ip2str(buf1, blocklist->entries[k].ip_min);
-                ip2str(buf2, blocklist->entries[k].ip_max);
+                ip1 = htonl(blocklist->entries[k].ip_min);
+                ip2 = htonl(blocklist->entries[k].ip_max);
+                inet_ntop(AF_INET, &ip1, buf1, sizeof(buf1));
+                inet_ntop(AF_INET, &ip2, buf2, sizeof(buf2));
                 sprintf(tmp2, "%s-%s ", buf1, buf2);
                 strcat(tmp, tmp2);
             }
-            ip2str(buf1, blocklist->entries[i].ip_min);
-            ip2str(buf2, ip_max);
+            ip1 = htonl(blocklist->entries[i].ip_min);
+            ip2 = htonl(ip_max);
+            inet_ntop(AF_INET, &ip1, buf1, sizeof(buf1));
+            inet_ntop(AF_INET, &ip2, buf2, sizeof(buf2));
             do_log(LOG_DEBUG, "Merging ranges: %sinto %s-%s", tmp, buf1, buf2);
             free(tmp);
 
@@ -250,9 +256,12 @@ blocklist_stats(blocklist_t *blocklist)
     for (i = 0; i < blocklist->count; i++) {
         block_entry_t *e = &blocklist->entries[i];
         if (e->hits >= 1) {
+            uint32_t ip1, ip2;
             char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
-            ip2str(buf1, e->ip_min);
-            ip2str(buf2, e->ip_max);
+            ip1 = htonl(e->ip_min);
+            ip2 = htonl(e->ip_max);
+            inet_ntop(AF_INET, &ip1, buf1, sizeof(buf1));
+            inet_ntop(AF_INET, &ip2, buf2, sizeof(buf2));
 #ifndef LOWMEM
             if (e->name) {
                 do_log(LOG_INFO, "%s - %s-%s: %d", e->name,
@@ -339,11 +348,14 @@ blocklist_dump(blocklist_t *blocklist)
     int i;
 
     for (i = 0; i < blocklist->count; i++) {
+        uint32_t ip1, ip2;
         char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
         block_entry_t *e = &blocklist->entries[i];
 
-        ip2str(buf1, e->ip_min);
-        ip2str(buf2, e->ip_max);
+        ip1 = htonl(e->ip_min);
+        ip2 = htonl(e->ip_max);
+        inet_ntop(AF_INET, &ip1, buf1, sizeof(buf1));
+        inet_ntop(AF_INET, &ip2, buf2, sizeof(buf2));
 #ifndef LOWMEM
         if (e->name) {
             printf("%d - %s-%s - %s\n", i, buf1, buf2, e->name);
@@ -353,8 +365,10 @@ blocklist_dump(blocklist_t *blocklist)
             for (j = e->merged_idx; j < blocklist->subcount; j++) {
                 block_sub_entry_t *s = &blocklist->subentries[j];
                 if (s->ip_min > e->ip_max) break;
-                ip2str(buf1, s->ip_min);
-                ip2str(buf2, s->ip_max);
+                ip1 = htonl(s->ip_min);
+                ip2 = htonl(s->ip_max);
+                inet_ntop(AF_INET, &ip1, buf1, sizeof(buf1));
+                inet_ntop(AF_INET, &ip2, buf2, sizeof(buf2));
                 printf("  Sub-Range: %s-%s - %s\n", buf1, buf2, s->name);
                 if (s->ip_max > e->ip_max) {
                     printf("  Partial overlap, should not happen!\n");

@@ -169,17 +169,6 @@ close_dbus()
 
 #endif
 
-void
-ip2str(char *dst, uint32_t ip)
-{
-    sprintf(dst, "%d.%d.%d.%d",
-            (ip >> 24) & 0xff,
-            (ip >> 16) & 0xff,
-            (ip >> 8) & 0xff,
-            ip & 0xff);
-}
-
-
 static int
 load_all_lists()
 {
@@ -239,7 +228,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 check_set_verdict_status(status);
                 src->hits++;
                 if (src->lasttime < curtime - MIN_INTERVAL) {
-                    ip2str(buf1, ip_src);
+                    inet_ntop(AF_INET, &SRC_ADDR(payload), buf1, sizeof(buf1));
 #ifdef HAVE_DBUS
                     if (use_dbus) {
                         nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_IN,
@@ -284,7 +273,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 }
                 dst->hits++;
                 if (dst->lasttime < curtime - MIN_INTERVAL) {
-                    ip2str(buf1, ip_dst);
+                    inet_ntop(AF_INET, &DST_ADDR(payload), buf1, sizeof(buf1));
 #ifdef HAVE_DBUS
                     if (use_dbus) {
                         nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_OUT,
@@ -342,8 +331,8 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                     dst->lasttime = curtime;
                 }
                 if (lasttime < curtime - MIN_INTERVAL) {
-                    ip2str(buf1, ip_src);
-                    ip2str(buf2, ip_dst);
+                    inet_ntop(AF_INET, &SRC_ADDR(payload), buf1, sizeof(buf1));
+                    inet_ntop(AF_INET, &DST_ADDR(payload), buf2, sizeof(buf2));
 #ifdef HAVE_DBUS
                     if (use_dbus) {
                         if (src) {
