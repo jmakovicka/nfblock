@@ -42,18 +42,16 @@ strip_crlf(char *str)
     }
 }
 
-static inline uint32_t
-assemble_ip(int i[4])
-{
-    return (i[0] << 24) + (i[1] << 16) + (i[2] << 8) + i[3];
-}
-
 static int
 loadlist_dat(blocklist_t *blocklist, const char *filename, const char *charset)
 {
     stream_t s;
     char buf[MAX_LABEL_LENGTH], name[MAX_LABEL_LENGTH];
-    int n, ip1[4], ip2[4], dummy;
+    union {
+        unsigned char b[4];
+        uint32_t n;
+    } ip1, ip2;
+    int n, dummy;
     int total, ok;
     int ret = -1;
     iconv_t ic;
@@ -82,12 +80,12 @@ loadlist_dat(blocklist_t *blocklist, const char *filename, const char *charset)
         }
 
         memset(name, 0, sizeof(name));
-        n = sscanf(buf, "%d.%d.%d.%d - %d.%d.%d.%d , %d , %199c",
-                   &ip1[0], &ip1[1], &ip1[2], &ip1[3],
-                   &ip2[0], &ip2[1], &ip2[2], &ip2[3],
+        n = sscanf(buf, "%hhu.%hhu.%hhu.%hhu - %hhu.%hhu.%hhu.%hhu , %d , %199c",
+                   &ip1.b[0], &ip1.b[1], &ip1.b[2], &ip1.b[3],
+                   &ip2.b[0], &ip2.b[1], &ip2.b[2], &ip2.b[3],
                    &dummy, name);
         if (n != 10) continue;
-        blocklist_append(blocklist, assemble_ip(ip1), assemble_ip(ip2), name, ic);
+        blocklist_append(blocklist, ntohl(ip1.n), ntohl(ip2.n), name, ic);
         ok++;
     }
     stream_close(&s);
@@ -108,7 +106,11 @@ loadlist_p2p(blocklist_t *blocklist, const char *filename, const char *charset)
 {
     stream_t s;
     char buf[MAX_LABEL_LENGTH], name[MAX_LABEL_LENGTH];
-    int n, ip1[4], ip2[4];
+    int n;
+    union {
+        unsigned char b[4];
+        uint32_t n;
+    } ip1, ip2;
     int total, ok;
     int ret = -1;
     iconv_t ic;
@@ -126,6 +128,8 @@ loadlist_p2p(blocklist_t *blocklist, const char *filename, const char *charset)
 
     total = ok = 0;
     while (stream_getline(buf, MAX_LABEL_LENGTH, &s)) {
+        char *colon;
+
         strip_crlf(buf);
         total++;
         if (ok == 0 && total > 100) {
@@ -133,14 +137,26 @@ loadlist_p2p(blocklist_t *blocklist, const char *filename, const char *charset)
             goto err;
         }
 
-        memset(name, 0, sizeof(name));
-        n = sscanf(buf, "%199[^:]:%d.%d.%d.%d-%d.%d.%d.%d",
-                   name,
-                   &ip1[0], &ip1[1], &ip1[2], &ip1[3],
-                   &ip2[0], &ip2[1], &ip2[2], &ip2[3]);
-        if (n != 9) continue;
+        if (strlen(buf) == 0 || buf[0] == '#')
+            continue;
 
-        blocklist_append(blocklist, assemble_ip(ip1), assemble_ip(ip2), name, ic);
+        memset(name, 0, sizeof(name));
+        colon = strrchr(buf, ':');
+        if (!colon) {
+            do_log(LOG_WARNING, "Error parsing %s\n", buf);
+            continue;
+        }
+        *colon = '\0';
+        sscanf(name, "%199s", buf);
+        n = sscanf(colon + 1, "%hhu.%hhu.%hhu.%hhu-%hhu.%hhu.%hhu.%hhu",
+                   &ip1.b[0], &ip1.b[1], &ip1.b[2], &ip1.b[3],
+                   &ip2.b[0], &ip2.b[1], &ip2.b[2], &ip2.b[3]);
+        if (n != 8) {
+            do_log(LOG_WARNING, "Error parsing %s\n", buf);
+            continue;
+        }
+
+        blocklist_append(blocklist, ntohl(ip1.n), ntohl(ip2.n), name, ic);
         ok++;
     }
     stream_close(&s);
