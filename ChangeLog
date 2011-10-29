@@ -1,3 +1,11 @@
+2011-10-29  Jindrich Makovicka  <makovick@gmail.com>
+
+	Release 0.6.3
+
+	* Use iblocklist.com by default
+	* P2P: Fixed parsing of ranges with ':' in name
+	* Various minor cleanups
+
 2009-03-08  Jindrich Makovicka  <makovick@gmail.com>
 
 	Release 0.6.2
