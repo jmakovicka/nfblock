@@ -95,7 +95,7 @@ src/test: $(TEST_OBJS)
 	gcc -o $@ $(LDFLAGS) $^ $(LIBS)
 
 src/dbus.so: src/dbus.o
-	$(CC) -shared $(LDFLAGS) -Wl `pkg-config dbus-1 --libs` -o $@ $^
+	$(CC) -shared $(LDFLAGS) -Wl,`pkg-config dbus-1 --libs` -o $@ $^
 clean:
 	rm -f *~ src/*.o src/*~ src/nfblockd src/dbus.so
 
