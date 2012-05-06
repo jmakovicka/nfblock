@@ -247,14 +247,34 @@ blocklist_trim(blocklist_t *blocklist)
 #endif
 }
 
+static int
+compare_hits(const void *p1, const void *p2)
+{
+    return (*(block_entry_t **)p2)->hits - (*(block_entry_t **)p1)->hits;
+}
+
 void
 blocklist_stats(blocklist_t *blocklist)
 {
     int i, total = 0;
 
+#ifndef LOWMEM
+    block_entry_t **sorted_entries;
+    sorted_entries = (block_entry_t **)malloc(sizeof(block_entry_t *) * blocklist->count);
+    CHECK_OOM(sorted_entries);
+    for (i = 0; i < blocklist->count; i++) {
+        sorted_entries[i] = &blocklist->entries[i];
+    }
+    qsort(sorted_entries, blocklist->count, sizeof(block_entry_t *), compare_hits);
+#endif
+
     do_log(LOG_INFO, "Blocker hit statistic:");
     for (i = 0; i < blocklist->count; i++) {
+#ifndef LOWMEM
+        block_entry_t *e = sorted_entries[i];
+#else
         block_entry_t *e = &blocklist->entries[i];
+#endif
         if (e->hits >= 1) {
             uint32_t ip1, ip2;
             char buf1[INET_ADDRSTRLEN], buf2[INET_ADDRSTRLEN];
@@ -287,6 +307,9 @@ blocklist_stats(blocklist_t *blocklist)
         }
     }
     do_log(LOG_INFO, "%d hits total", total);
+#ifndef LOWMEM
+    free(sorted_entries);
+#endif
 }
 
 #ifndef LOWMEM
