@@ -256,20 +256,30 @@ compare_hits(const void *p1, const void *p2)
 void
 blocklist_stats(blocklist_t *blocklist)
 {
-    int i, total = 0;
+    int i;
+    long total = 0;
 
 #ifndef LOWMEM
     block_entry_t **sorted_entries;
-    sorted_entries = (block_entry_t **)malloc(sizeof(block_entry_t *) * blocklist->count);
+    int entry_count = 0;
+
+    for (i = 0; i < blocklist->count; i++)
+        if (blocklist->entries[i].hits >= 1)
+            entry_count++;
+
+    sorted_entries = (block_entry_t **)malloc(sizeof(block_entry_t *) * entry_count);
     CHECK_OOM(sorted_entries);
-    for (i = 0; i < blocklist->count; i++) {
-        sorted_entries[i] = &blocklist->entries[i];
+    for (i = 0, entry_count = 0; i < blocklist->count; i++) {
+        if (blocklist->entries[i].hits >= 1)
+            sorted_entries[entry_count++] = &blocklist->entries[i];
     }
-    qsort(sorted_entries, blocklist->count, sizeof(block_entry_t *), compare_hits);
+    qsort(sorted_entries, entry_count, sizeof(block_entry_t *), compare_hits);
+#else
+    int entry_count = blocklist->count;
 #endif
 
     do_log(LOG_INFO, "Blocker hit statistic:");
-    for (i = 0; i < blocklist->count; i++) {
+    for (i = 0; i < entry_count; i++) {
 #ifndef LOWMEM
         block_entry_t *e = sorted_entries[i];
 #else
@@ -306,7 +316,7 @@ blocklist_stats(blocklist_t *blocklist)
             total += e->hits;
         }
     }
-    do_log(LOG_INFO, "%d hits total", total);
+    do_log(LOG_INFO, "%ld hits total", total);
 #ifndef LOWMEM
     free(sorted_entries);
 #endif
