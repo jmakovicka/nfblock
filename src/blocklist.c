@@ -173,7 +173,7 @@ blocklist_trim(blocklist_t *blocklist)
         }
         if (j > i + 1) {
             uint32_t ip1, ip2;
-            char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
+            char buf1[INET_ADDRSTRLEN], buf2[INET_ADDRSTRLEN];
             char *tmp = malloc(32 * (j - i + 1) + 1);
             CHECK_OOM(tmp);
             /* List the merged entries */
@@ -257,7 +257,7 @@ blocklist_stats(blocklist_t *blocklist)
         block_entry_t *e = &blocklist->entries[i];
         if (e->hits >= 1) {
             uint32_t ip1, ip2;
-            char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
+            char buf1[INET_ADDRSTRLEN], buf2[INET_ADDRSTRLEN];
             ip1 = htonl(e->ip_min);
             ip2 = htonl(e->ip_max);
             inet_ntop(AF_INET, &ip1, buf1, sizeof(buf1));
@@ -349,7 +349,7 @@ blocklist_dump(blocklist_t *blocklist)
 
     for (i = 0; i < blocklist->count; i++) {
         uint32_t ip1, ip2;
-        char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
+        char buf1[INET_ADDRSTRLEN], buf2[INET_ADDRSTRLEN];
         block_entry_t *e = &blocklist->entries[i];
 
         ip1 = htonl(e->ip_min);

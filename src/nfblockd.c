@@ -204,7 +204,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     char *payload;
     block_entry_t *src, *dst;
     uint32_t ip_src, ip_dst;
-    char buf1[IP_STRING_SIZE], buf2[IP_STRING_SIZE];
+    char buf1[INET_ADDRSTRLEN], buf2[INET_ADDRSTRLEN];
 #ifndef LOWMEM
     block_sub_entry_t *sranges[MAX_RANGES + 1], *dranges[MAX_RANGES + 1];
 #else

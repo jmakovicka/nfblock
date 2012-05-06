@@ -29,8 +29,6 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#define IP_STRING_SIZE 16
-
 void do_log(int priority, const char *format, ...);
 typedef void (*log_func_t) (int priority, const char *format, ...);
 
