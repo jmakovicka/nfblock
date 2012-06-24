@@ -416,7 +416,7 @@ nfqueue_bind()
         return -1;
     }
 
-    if (nfq_set_mode(nfqueue_qh, NFQNL_COPY_PACKET, 21) < 0) {
+    if (nfq_set_mode(nfqueue_qh, NFQNL_COPY_PACKET, sizeof(struct iphdr)) < 0) {
         do_log(LOG_ERR, "can't set packet_copy mode: %s", strerror(errno));
         nfq_destroy_queue(nfqueue_qh);
         nfq_close(nfqueue_h);
