@@ -447,6 +447,7 @@ nfqueue_loop ()
     char buf[2048];
     struct pollfd fds[1];
 
+restart:
     if (nfqueue_bind() < 0)
         return -1;
 
@@ -470,6 +471,11 @@ nfqueue_loop ()
         if (rv > 0) {
             rv = recv(fd, buf, sizeof(buf), 0);
             if (rv < 0) {
+                if (errno == ENOBUFS) {
+                    do_log(LOG_ERR, "Buffer overrun, restarting");
+                    nfqueue_unbind();
+                    goto restart;
+                }
                 if (errno == EINTR)
                     continue;
                 do_log(LOG_ERR, "Error reading from socket: %s", strerror(errno));
