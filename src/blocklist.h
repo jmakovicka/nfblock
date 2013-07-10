@@ -47,15 +47,18 @@ static inline int iconv_close(iconv_t cd)
 #ifndef LOWMEM
 typedef struct block_sub_entry_t
 {
-    uint32_t ip_min, ip_max;
     char *name;
+    uint32_t ip_min, ip_max;
 } block_sub_entry_t;
 #endif
 
 typedef struct block_entry_t
 {
-    /* must start with sub-entry */
     uint32_t ip_min, ip_max;
+} block_entry_t;
+
+typedef struct block_entry2_t
+{
 #ifndef LOWMEM
     char *name;
 #endif
@@ -65,11 +68,12 @@ typedef struct block_entry_t
     int merged_idx;
 #endif
     time_t lasttime;
-} block_entry_t;
+} block_entry2_t;
 
 typedef struct blocklist_t
 {
     block_entry_t *entries;
+    block_entry2_t *entries2;
     unsigned int count, size;
 
 #ifndef LOWMEM
@@ -87,10 +91,10 @@ void blocklist_sort(blocklist_t *blocklist);
 void blocklist_trim(blocklist_t *blocklist);
 void blocklist_stats(blocklist_t *blocklist);
 #ifndef LOWMEM
-block_entry_t * blocklist_find(blocklist_t *blocklist, uint32_t ip,
-                               block_sub_entry_t **sub, int max);
+block_entry2_t * blocklist_find(blocklist_t *blocklist, uint32_t ip,
+                                const char **names, int max);
 #else
-block_entry_t * blocklist_find(blocklist_t *blocklist, uint32_t ip,
+block_entry2_t * blocklist_find(blocklist_t *blocklist, uint32_t ip,
                                void *dummy1, int dummy2);
 #endif
 void blocklist_dump(blocklist_t *blocklist);

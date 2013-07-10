@@ -49,7 +49,7 @@ typedef int (*nfblock_dbus_init_t)(log_func_t do_log);
 typedef int (*nfblock_dbus_send_blocked_t)(log_func_t do_log, time_t curtime,
                                            dbus_log_message_t signal,
                                            bool dropped, char *addr,
-                                           block_sub_entry_t **ranges,
+                                           const char **ranges,
                                            uint32_t hits);
 
 #endif

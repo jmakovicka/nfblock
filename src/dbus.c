@@ -65,7 +65,7 @@ nfblock_dbus_init(log_func_t do_log)
 dbus_bool_t
 nfblock_dbus_message_append_blocked(DBusMessage *dbmsg,
                                     const char *addr,
-                                    block_sub_entry_t **ranges,
+                                    const char **ranges,
                                     uint32_t hits,
                                     bool dropped,
                                     time_t curtime)
@@ -82,7 +82,7 @@ nfblock_dbus_message_append_blocked(DBusMessage *dbmsg,
     dbb &= dbus_message_iter_append_basic(&dbiter, DBUS_TYPE_STRING, &addr);
     /* label */
     dbb &= dbus_message_iter_append_basic(&dbiter, DBUS_TYPE_STRING,
-                                          &(ranges[0]->name));
+                                          &(ranges[0]));
     /* timestamp */
     strftime(tstamp, sizeof(tstamp), "%T", localtime_r(&curtime, &curtime_tm));
     s = &tstamp[0];
@@ -98,7 +98,7 @@ nfblock_dbus_message_append_blocked(DBusMessage *dbmsg,
 int
 nfblock_dbus_send_blocked(log_func_t do_log, time_t curtime,
                           dbus_log_message_t signal, bool dropped,
-                          char *addr, block_sub_entry_t **ranges,
+                          char *addr, const char **ranges,
                           uint32_t hits)
 {
     DBusMessage *dbmsg = NULL;

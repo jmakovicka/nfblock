@@ -201,12 +201,12 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 {
     int id = 0, status = 0;
     struct nfqnl_msg_packet_hdr *ph;
-    char *payload;
-    block_entry_t *src, *dst;
+    unsigned char *payload;
+    block_entry2_t *src, *dst;
     uint32_t ip_src, ip_dst;
     char buf1[INET_ADDRSTRLEN], buf2[INET_ADDRSTRLEN];
 #ifndef LOWMEM
-    block_sub_entry_t *sranges[MAX_RANGES + 1], *dranges[MAX_RANGES + 1];
+    const char *sranges[MAX_RANGES + 1], *dranges[MAX_RANGES + 1];
 #else
     /* dummy variables */
     static void *sranges = 0, *dranges = 0;
@@ -239,7 +239,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                     if (use_syslog) {
 #ifndef LOWMEM
                         do_log(LOG_NOTICE, "Blocked IN: %s, hits: %d, SRC: %s",
-                               sranges[0]->name, src->hits, buf1);
+                               sranges[0], src->hits, buf1);
 #else
                         do_log(LOG_NOTICE, "Blocked IN: hits: %d, SRC: %s",
                                src->hits, buf1);
@@ -250,7 +250,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
             } else if (unlikely(accept_mark)) {
                 // we set the user-defined accept_mark and set NF_REPEAT verdict
                 // it's up to other iptables rules to decide what to do with this marked packet
-                status = nfq_set_verdict_mark(qh, id, NF_REPEAT, accept_mark, 0, NULL);
+                status = nfq_set_verdict2(qh, id, NF_REPEAT, accept_mark, 0, NULL);
                 check_set_verdict_status(status);
             } else {
                 // no accept_mark, just NF_ACCEPT the packet
@@ -265,7 +265,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 if (likely(reject_mark)) {
                     // we set the user-defined reject_mark and set NF_REPEAT verdict
                     // it's up to other iptables rules to decide what to do with this marked packet
-                    status = nfq_set_verdict_mark(qh, id, NF_REPEAT, reject_mark, 0, NULL);
+                    status = nfq_set_verdict2(qh, id, NF_REPEAT, reject_mark, 0, NULL);
                     check_set_verdict_status(status);
                 } else {
                     status = nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
@@ -284,7 +284,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                     if (use_syslog) {
 #ifndef LOWMEM
                         do_log(LOG_NOTICE, "Blocked OUT: %s, hits: %d, DST: %s",
-                                        dranges[0]->name, dst->hits, buf1);
+                                        dranges[0], dst->hits, buf1);
 #else
                         do_log(LOG_NOTICE, "Blocked OUT: %s, hits: %d, DST: %s",
                                dst->hits, buf1);
@@ -295,7 +295,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
             } else if (unlikely(accept_mark)) {
                 // we set the user-defined accept_mark and set NF_REPEAT verdict
                 // it's up to other iptables rules to decide what to do with this marked packet
-                status = nfq_set_verdict_mark(qh, id, NF_REPEAT, accept_mark, 0, NULL);
+                status = nfq_set_verdict2(qh, id, NF_REPEAT, accept_mark, 0, NULL);
                 check_set_verdict_status(status);
             } else {
                 // no accept_mark, just NF_ACCEPT the packet
@@ -313,7 +313,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 if (likely(reject_mark)) {
                     // we set the user-defined reject_mark and set NF_REPEAT verdict
                     // it's up to other iptables rules to decide what to do with this marked packet
-                    status = nfq_set_verdict_mark(qh, id, NF_REPEAT, reject_mark, 0, NULL);
+                    status = nfq_set_verdict2(qh, id, NF_REPEAT, reject_mark, 0, NULL);
                     check_set_verdict_status(status);
                 } else {
                     status = nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
@@ -356,7 +356,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 
 #ifndef LOWMEM
                         do_log(LOG_NOTICE, "Blocked FWD: %s->%s, hits: %d,%d, SRC: %s, DST: %s",
-                               src ? sranges[0]->name : "(unknown)", dst ? dranges[0]->name : "(unknown)",
+                               src ? sranges[0] : "(unknown)", dst ? dranges[0] : "(unknown)",
                                src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
 #else
                         do_log(LOG_NOTICE, "Blocked FWD: hits: %d,%d, SRC: %s, DST: %s",
@@ -367,7 +367,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
             } else if ( unlikely(accept_mark) ) {
                 // we set the user-defined accept_mark and set NF_REPEAT verdict
                 // it's up to other iptables rules to decide what to do with this marked packet
-                status = nfq_set_verdict_mark(qh, id, NF_REPEAT, accept_mark, 0, NULL);
+                status = nfq_set_verdict2(qh, id, NF_REPEAT, accept_mark, 0, NULL);
                 check_set_verdict_status(status);
             } else {
                 // no accept_mark, just NF_ACCEPT the packet
