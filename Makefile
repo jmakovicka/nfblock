@@ -21,6 +21,9 @@ ZLIB ?= yes
 # Want to use gdb on the target binary?
 #DEBUG ?= yes
 
+# Compile with address sanitizer?
+#ASAN ?= yes
+
 prefix ?= /usr/local
 SBINDIR ?= $(prefix)/sbin
 DBUSCONFDIR ?= /etc/dbus-1/system.d
@@ -58,6 +61,11 @@ ifeq ($(DEBUG),yes)
 CFLAGS+=-ggdb3
 LDFLAGS+=-ggdb3
 OPTFLAGS=-O0
+endif
+
+ifeq ($(ASAN),yes)
+CFLAGS+=-fsanitize=address
+LDFLAGS+=-lasan
 endif
 
 CFLAGS+=$(OPTFLAGS)
