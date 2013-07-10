@@ -64,8 +64,8 @@ do_log(int priority, const char *format, ...)
     va_list ap;
 
     va_start(ap, format);
-//    vfprintf(stderr, format, ap);
-//    fprintf(stderr, "\n");
+    vfprintf(stderr, format, ap);
+    fprintf(stderr, "\n");
     va_end(ap);
 }
 
@@ -77,12 +77,20 @@ int
 main(int argc, char *argv[])
 {
     uint64_t i, j;
-    block_sub_entry_t *sranges[MAX_RANGES + 1];
+    const char *sranges[MAX_RANGES + 1];
 
     blocklist_init(&blocklist);
     blocklist_clear(&blocklist, 0);
-    load_list(&blocklist, "bt_level1.gz", NULL);
-
+    load_list(&blocklist, "level1.gz", NULL);
+    fprintf(stderr, "%d entries\n", blocklist.count);
+/*
+    load_list(&blocklist, "level2.gz", NULL);
+    fprintf(stderr, "%d entries\n", blocklist.count);
+    load_list(&blocklist, "level3.gz", NULL);
+    fprintf(stderr, "%d entries\n", blocklist.count);
+    load_list(&blocklist, "pt.gz", NULL);
+    fprintf(stderr, "%d entries\n", blocklist.count);
+*/
     bitfield = (int64_t *)malloc(0x100000000UL >> 3);
     fprintf(stderr, "%d entries\n", blocklist.count);
 
@@ -93,13 +101,16 @@ main(int argc, char *argv[])
         for (j = blocklist.entries[i].ip_min; j <= blocklist.entries[i].ip_max; j++) {
             bitfield[j >> 6] |= (uint64_t)1 << (j & 0x3f);
         }
+        blocklist.entries2[i].hits=rand();
     }
 
     blocklist_sort(&blocklist);
     blocklist_trim(&blocklist);
+    blocklist_dump(&blocklist);
 
+    fprintf(stderr, "%d entries after trim\n", blocklist.count);
     for (i = 0; i <= 0xffffffffULL; i++) {
-        block_entry_t * res;
+        block_entry2_t * res;
         if ((i & 0xffffff) == 0)
             fprintf(stderr, "%08lx\n", i);
         res = blocklist_find(&blocklist, i, sranges, MAX_RANGES);
@@ -112,5 +123,6 @@ main(int argc, char *argv[])
         }
     }
 
+    blocklist_stats(&blocklist);
     return 0;
 }
