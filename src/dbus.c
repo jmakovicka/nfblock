@@ -67,7 +67,7 @@ nfblock_dbus_message_append_blocked(DBusMessage *dbmsg,
                                     const char *addr,
                                     const char **ranges,
                                     uint32_t hits,
-                                    bool dropped,
+                                    dbus_bool_t dropped,
                                     time_t curtime)
 {
     DBusMessageIter dbiter;
