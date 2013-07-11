@@ -264,11 +264,13 @@ blocklist_trim(blocklist_t *blocklist)
 #endif
 }
 
+#ifndef LOWMEM
 static int
 compare_hits(const void *p1, const void *p2)
 {
     return (*(block_entry2_t **)p2)->hits - (*(block_entry2_t **)p1)->hits;
 }
+#endif
 
 void
 blocklist_stats(blocklist_t *blocklist)
@@ -330,7 +332,7 @@ blocklist_stats(blocklist_t *blocklist)
                        buf1, buf2, e2->hits);
             }
 #else
-            do_log(LOG_INFO, "%s-%s: %d", buf1, buf2, e->hits);
+            do_log(LOG_INFO, "%s-%s: %d", buf1, buf2, e2->hits);
 #endif
             total += e2->hits;
         }
@@ -389,14 +391,21 @@ out:
     return ret2;
 }
 #else
-block_entry_t *
+block_entry2_t *
 blocklist_find(blocklist_t *blocklist, uint32_t ip,
                void *dummy1, int dummy2)
 {
     block_entry_t e;
+    block_entry_t *ret;
 
     e.ip_min = e.ip_max = ip;
-    return bsearch(&e, blocklist->entries, blocklist->count, sizeof(block_entry_t), block_key_compare);
+    ret = bsearch(&e, blocklist->entries, blocklist->count, sizeof(block_entry_t), block_key_compare);
+
+    if (!ret)
+        // entry not found
+        return 0;
+
+    return &blocklist->entries2[ret - blocklist->entries];
 }
 #endif
 
@@ -409,7 +418,9 @@ blocklist_dump(blocklist_t *blocklist)
         uint32_t ip1, ip2;
         char buf1[INET_ADDRSTRLEN], buf2[INET_ADDRSTRLEN];
         block_entry_t *e = &blocklist->entries[i];
+#ifndef LOWMEM
         block_entry2_t *e2 = &blocklist->entries2[i];
+#endif
 
         ip1 = htonl(e->ip_min);
         ip2 = htonl(e->ip_max);
