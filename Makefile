@@ -97,10 +97,10 @@ endif
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 src/nfblockd: $(OBJS)
-	gcc -o $@ $(LDFLAGS) $^ $(LIBS)
+	$(CC) -o $@ $(LDFLAGS) $^ $(LIBS)
 
 src/test: $(TEST_OBJS)
-	gcc -o $@ $(LDFLAGS) $^ $(LIBS)
+	$(CC) -o $@ $(LDFLAGS) $^ $(LIBS)
 
 src/dbus.so: src/dbus.o
 	$(CC) -shared $(LDFLAGS) -Wl,`pkg-config dbus-1 --libs` -o $@ $^
