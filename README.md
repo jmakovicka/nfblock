@@ -35,15 +35,15 @@ Requirements
 
    The following modules should suffice to run NFblockD:
 
-```
-    nfnetlink_queue         9280  1
-    nfnetlink               4824  2 nfnetlink_queue
-    ipt_NFQUEUE             1408  2
-    ipt_state               1472  0
-    ip_conntrack           40044  1 ipt_state
-    iptable_filter          2176  1
-    ip_tables              17600  3 ipt_NFQUEUE,ipt_state,iptable_filter
-```
+   ```
+   nfnetlink_queue         9280  1
+   nfnetlink               4824  2 nfnetlink_queue
+   ipt_NFQUEUE             1408  2
+   ipt_state               1472  0
+   ip_conntrack           40044  1 ipt_state
+   iptable_filter          2176  1
+   ip_tables              17600  3 ipt_NFQUEUE,ipt_state,iptable_filter
+   ```
 
 2. A valid `guarding.p2p/ipfilter.dat/p2p.p2b` host file(s).
 
