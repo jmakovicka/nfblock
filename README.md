@@ -64,9 +64,9 @@ Requirements
    example if you want NFblockD to filter all the new TCP connections
    that are initiated from your box using NFQUEUE kernel interface:
 
-```
-    iptables -A OUTPUT -p tcp -m state --state NEW -j NFQUEUE
-```
+   ```
+   iptables -A OUTPUT -p tcp -m state --state NEW -j NFQUEUE
+   ```
 
 NFQUEUE supports multiple queues (using `--queue-num` option), you
 MUST specify it when launching NFblockD if you don't use the default
