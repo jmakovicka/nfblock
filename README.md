@@ -12,13 +12,13 @@ NFblockD is a linux daemon filtering the IP connections according to a
 supplied blocklist file. It understands the blocklists in the
 following formats:
 
-* IPFilter ascii files (used by eMule & derivatives, available at
+- IPFilter ascii files (used by eMule & derivatives, available at
   http://bluetack.co.uk). The input file can be optionally compressed
   using gzip.
 
-* PeerGuardian ascii files, optionally gzipped.
+- PeerGuardian ascii files, optionally gzipped.
 
-* PeerGuardian binary files. Versions 1-3 are currently supported.
+- PeerGuardian binary files. Versions 1-3 are currently supported.
 
 NFblockD can load more blocklist files if needed. The IP ranges will
 be properly merged in that case.
@@ -27,7 +27,8 @@ Requirements
 ------------
 
 1. iptables and kernel support for connection and state tracking (
-   ip_conntrack,ipt_state) and ipt_NFQUEUE kernel modules/built-in.
+   `ip_conntrack`, `ipt_state`) and `ipt_NFQUEUE` kernel
+   modules (or built-in).
 
    At least kernel 2.6.14 together with the userspace libraries
    libnfnetlink and libnetfilter_queue are required to use the NFQUEUE
@@ -49,8 +50,8 @@ Requirements
 
    If you install the Debian package, the "Normal" IP blocklist from
    http://bluetack.co.uk will be downloaded and used by default. It
-   can be changed by editing BLOCKLIST_URL in the configuration in
-   /etc/default/nfblockd and running `dpkg-reconfigure nfblockd`.
+   can be changed by editing `BLOCKLIST_URL` in the configuration in
+   `/etc/default/nfblockd` and running `dpkg-reconfigure nfblockd`.
 
    If the input file or files contain overlapping IP ranges, they will
    be merged automatically.
@@ -101,12 +102,12 @@ iptables -A nfqin -i $IFACE -j NFQUEUE
 
 **VERY IMPORTANT WARNING**
 
-When a packet hits a NFQUEUE/QUEUE rule it will be accepted or dropped
-by NFblockD (well it is what you want right? :P) so it will NOT be
-checked by other rules that may follow in the chain. Basically, the
-best practice is having the default DROP policy set, and then
-replacing the ACCEPT targets where you'd like to have an additional
-filtering with either NFQUEUE or nfqin/nfqout.
+When a packet hits a `NFQUEUE` / `QUEUE` rule it will be accepted or
+dropped by NFblockD (well it is what you want right? :P) so it will
+NOT be checked by other rules that may follow in the chain. Basically,
+the best practice is having the default `DROP` policy set, and then
+replacing the `ACCEPT` targets where you'd like to have an additional
+filtering with either `NFQUEUE` or `nfqin` / `nfqout`.
 
 Installation & Usage
 --------------------
