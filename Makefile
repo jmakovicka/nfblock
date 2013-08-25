@@ -81,7 +81,7 @@ DISTFILES = \
 	src/dbus.c src/dbus.h \
 	src/dl-blocklistpro.pl \
 	src/test.c \
-	dbus-nfblockd.conf ChangeLog README \
+	dbus-nfblockd.conf ChangeLog README.md \
 	debian/changelog debian/control debian/copyright \
 	debian/cron.daily debian/cron.weekly \
 	debian/default debian/init.d \
