@@ -118,21 +118,21 @@ Setting up Shorewall
 Alternatively, when using Shorewall, NFQUEUE can be added to
 `/etc/shorewall/blrules` as follows:
 
- ```
+```
  # Always allow ssh 
- WHITELIST all all tcp ssh 
+WHITELIST all all tcp ssh 
  
  # Allow outbound for particular protocols (eg. berlios.de is 
  # blocklisted) 
- WHITELIST fw,loc all tcp ftp,http,https,svn,git,domain,imaps,22100,7993 
- WHITELIST fw,loc all udp domain 
+WHITELIST fw,loc all tcp ftp,http,https,svn,git,domain,imaps,22100,7993 
+WHITELIST fw,loc all udp domain 
  
  # More whitelist rules may follow ... 
  
  # Check all new against the blocklist 
- NFQUEUE all all tcp 
- NFQUEUE all all udp 
- ```
+NFQUEUE all all tcp 
+NFQUEUE all all udp 
+```
 
 Installation & Usage
 --------------------
