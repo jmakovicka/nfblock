@@ -59,14 +59,17 @@ Requirements
 3. Minimum iptables knowledge, preferably an already working iptables
    setup :)
 
-   NFblockD filter only packets that are NFQUEUEd with iptables. So
-   it's up to you to choose what traffic you want to be filtered.  For
-   example if you want NFblockD to filter all the new TCP connections
-   that are initiated from your box using NFQUEUE kernel interface:
+Setting up iptables
+-------------------
 
-   ```
-   iptables -A OUTPUT -p tcp -m state --state NEW -j NFQUEUE
-   ```
+NFblockD filter only packets that are NFQUEUEd with iptables. So it's
+up to you to choose what traffic you want to be filtered.  For example
+if you want NFblockD to filter all the new TCP connections that are
+initiated from your box using NFQUEUE kernel interface:
+
+```
+iptables -A OUTPUT -p tcp -m state --state NEW -j NFQUEUE
+```
 
 NFQUEUE supports multiple queues (using `--queue-num` option), you
 MUST specify it when launching NFblockD if you don't use the default
@@ -108,6 +111,28 @@ NOT be checked by other rules that may follow in the chain. Basically,
 the best practice is having the default `DROP` policy set, and then
 replacing the `ACCEPT` targets where you'd like to have an additional
 filtering with either `NFQUEUE` or `nfqin` / `nfqout`.
+
+Setting up Shorewall
+--------------------
+
+Alternatively, when using Shorewall, NFQUEUE can be added to
+`/etc/shorewall/blrules` as follows:
+
+ ```
+ # Always allow ssh 
+ WHITELIST all all tcp ssh 
+ 
+ # Allow outbound for particular protocols (eg. berlios.de is 
+ # blocklisted) 
+ WHITELIST fw,loc all tcp ftp,http,https,svn,git,domain,imaps,22100,7993 
+ WHITELIST fw,loc all udp domain 
+ 
+ # More whitelist rules may follow ... 
+ 
+ # Check all new against the blocklist 
+ NFQUEUE all all tcp 
+ NFQUEUE all all udp 
+ ```
 
 Installation & Usage
 --------------------
