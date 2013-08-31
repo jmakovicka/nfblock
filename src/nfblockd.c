@@ -213,176 +213,185 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 #endif
 
     ph = nfq_get_msg_packet_hdr(nfa);
-    if (ph) {
-        id = ntohl(ph->packet_id);
-        nfq_get_payload(nfa, &payload);
+    if (unlikely(!ph)) {
+        do_log(LOG_ERR, "NFQUEUE: can't get msg packet header.");
+        // from nfqueue source: 0 = ok, >0 = soft error, <0 hard error
+        return 1;
+    }
 
-        switch (ph->hook) {
-        case NF_IP_LOCAL_IN:
-            ip_src = ntohl(SRC_ADDR(payload));
-            src = blocklist_find(&blocklist, ip_src, sranges, MAX_RANGES);
-            if (src) {
-                // we drop the packet instead of rejecting
-                // we don't want the other host to know we are alive
+    id = ntohl(ph->packet_id);
+    status = nfq_get_payload(nfa, &payload);
+    if (unlikely(status < 0)) {
+        do_log(LOG_ERR, "NFQUEUE: can't get packet payload.");
+        return 1;
+    } else  if (unlikely(status < sizeof(struct iphdr))) {
+        do_log(LOG_ERR, "NFQUEUE: packet payload too short.");
+        return 1;
+    }
+
+    switch (ph->hook) {
+    case NF_IP_LOCAL_IN:
+        ip_src = ntohl(SRC_ADDR(payload));
+        src = blocklist_find(&blocklist, ip_src, sranges, MAX_RANGES);
+        if (src) {
+            // we drop the packet instead of rejecting
+            // we don't want the other host to know we are alive
+            status = nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+            check_set_verdict_status(status);
+            src->hits++;
+            if (src->lasttime < curtime - MIN_INTERVAL) {
+                inet_ntop(AF_INET, &SRC_ADDR(payload), buf1, sizeof(buf1));
+#ifdef HAVE_DBUS
+                if (use_dbus) {
+                    nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_IN,
+                                              reject_mark ? false : true,
+                                              buf1, sranges, src->hits);
+                }
+#endif
+                if (use_syslog) {
+#ifndef LOWMEM
+                    do_log(LOG_NOTICE, "Blocked IN: %s, hits: %d, SRC: %s",
+                           sranges[0], src->hits, buf1);
+#else
+                    do_log(LOG_NOTICE, "Blocked IN: hits: %d, SRC: %s",
+                           src->hits, buf1);
+#endif
+                }
+            }
+            src->lasttime = curtime;
+        } else if (unlikely(accept_mark)) {
+            // we set the user-defined accept_mark and set NF_REPEAT verdict
+            // it's up to other iptables rules to decide what to do with this marked packet
+            status = nfq_set_verdict2(qh, id, NF_REPEAT, accept_mark, 0, NULL);
+            check_set_verdict_status(status);
+        } else {
+            // no accept_mark, just NF_ACCEPT the packet
+            status = nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+            check_set_verdict_status(status);
+        }
+        break;
+    case NF_IP_LOCAL_OUT:
+        ip_dst = ntohl(DST_ADDR(payload));
+        dst = blocklist_find(&blocklist, ip_dst, dranges, MAX_RANGES);
+        if (dst) {
+            if (likely(reject_mark)) {
+                // we set the user-defined reject_mark and set NF_REPEAT verdict
+                // it's up to other iptables rules to decide what to do with this marked packet
+                status = nfq_set_verdict2(qh, id, NF_REPEAT, reject_mark, 0, NULL);
+                check_set_verdict_status(status);
+            } else {
                 status = nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
                 check_set_verdict_status(status);
-                src->hits++;
-                if (src->lasttime < curtime - MIN_INTERVAL) {
-                    inet_ntop(AF_INET, &SRC_ADDR(payload), buf1, sizeof(buf1));
+            }
+            dst->hits++;
+            if (dst->lasttime < curtime - MIN_INTERVAL) {
+                inet_ntop(AF_INET, &DST_ADDR(payload), buf1, sizeof(buf1));
 #ifdef HAVE_DBUS
-                    if (use_dbus) {
+                if (use_dbus) {
+                    nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_OUT,
+                                              reject_mark ? false : true,
+                                              buf1, dranges, dst->hits);
+                }
+#endif
+                if (use_syslog) {
+#ifndef LOWMEM
+                    do_log(LOG_NOTICE, "Blocked OUT: %s, hits: %d, DST: %s",
+                           dranges[0], dst->hits, buf1);
+#else
+                    do_log(LOG_NOTICE, "Blocked OUT: %s, hits: %d, DST: %s",
+                           dst->hits, buf1);
+#endif
+                }
+            }
+            dst->lasttime = curtime;
+        } else if (unlikely(accept_mark)) {
+            // we set the user-defined accept_mark and set NF_REPEAT verdict
+            // it's up to other iptables rules to decide what to do with this marked packet
+            status = nfq_set_verdict2(qh, id, NF_REPEAT, accept_mark, 0, NULL);
+            check_set_verdict_status(status);
+        } else {
+            // no accept_mark, just NF_ACCEPT the packet
+            status = nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+            check_set_verdict_status(status);
+        }
+        break;
+    case NF_IP_FORWARD:
+        ip_src = ntohl(SRC_ADDR(payload));
+        ip_dst = ntohl(DST_ADDR(payload));
+        src = blocklist_find(&blocklist, ip_src, sranges, MAX_RANGES);
+        dst = blocklist_find(&blocklist, ip_dst, dranges, MAX_RANGES);
+        if (dst || src) {
+            int lasttime = 0;
+            if (likely(reject_mark)) {
+                // we set the user-defined reject_mark and set NF_REPEAT verdict
+                // it's up to other iptables rules to decide what to do with this marked packet
+                status = nfq_set_verdict2(qh, id, NF_REPEAT, reject_mark, 0, NULL);
+                check_set_verdict_status(status);
+            } else {
+                status = nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+                check_set_verdict_status(status);
+            }
+            if (src) {
+                src->hits++;
+                lasttime = src->lasttime;
+                src->lasttime = curtime;
+            }
+            if (dst) {
+                dst->hits++;
+                if (dst->lasttime > lasttime)
+                    lasttime = dst->lasttime;
+                dst->lasttime = curtime;
+            }
+            if (lasttime < curtime - MIN_INTERVAL) {
+                inet_ntop(AF_INET, &SRC_ADDR(payload), buf1, sizeof(buf1));
+                inet_ntop(AF_INET, &DST_ADDR(payload), buf2, sizeof(buf2));
+#ifdef HAVE_DBUS
+                if (use_dbus) {
+                    if (src) {
                         nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_IN,
                                                   reject_mark ? false : true,
                                                   buf1, sranges, src->hits);
                     }
-#endif
-                    if (use_syslog) {
-#ifndef LOWMEM
-                        do_log(LOG_NOTICE, "Blocked IN: %s, hits: %d, SRC: %s",
-                               sranges[0], src->hits, buf1);
-#else
-                        do_log(LOG_NOTICE, "Blocked IN: hits: %d, SRC: %s",
-                               src->hits, buf1);
-#endif
+                    if (dst) {
+                        nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_OUT, reject_mark ? false : true,
+                                                  buf2, dranges, dst->hits);
                     }
-                }
-                src->lasttime = curtime;
-            } else if (unlikely(accept_mark)) {
-                // we set the user-defined accept_mark and set NF_REPEAT verdict
-                // it's up to other iptables rules to decide what to do with this marked packet
-                status = nfq_set_verdict2(qh, id, NF_REPEAT, accept_mark, 0, NULL);
-                check_set_verdict_status(status);
-            } else {
-                // no accept_mark, just NF_ACCEPT the packet
-                status = nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
-                check_set_verdict_status(status);
-            }
-            break;
-        case NF_IP_LOCAL_OUT:
-            ip_dst = ntohl(DST_ADDR(payload));
-            dst = blocklist_find(&blocklist, ip_dst, dranges, MAX_RANGES);
-            if (dst) {
-                if (likely(reject_mark)) {
-                    // we set the user-defined reject_mark and set NF_REPEAT verdict
-                    // it's up to other iptables rules to decide what to do with this marked packet
-                    status = nfq_set_verdict2(qh, id, NF_REPEAT, reject_mark, 0, NULL);
-                    check_set_verdict_status(status);
-                } else {
-                    status = nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
-                    check_set_verdict_status(status);
-                }
-                dst->hits++;
-                if (dst->lasttime < curtime - MIN_INTERVAL) {
-                    inet_ntop(AF_INET, &DST_ADDR(payload), buf1, sizeof(buf1));
-#ifdef HAVE_DBUS
-                    if (use_dbus) {
-                        nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_OUT,
-                                                  reject_mark ? false : true,
-                                                  buf1, dranges, dst->hits);
-                    }
-#endif
-                    if (use_syslog) {
-#ifndef LOWMEM
-                        do_log(LOG_NOTICE, "Blocked OUT: %s, hits: %d, DST: %s",
-                                        dranges[0], dst->hits, buf1);
-#else
-                        do_log(LOG_NOTICE, "Blocked OUT: %s, hits: %d, DST: %s",
-                               dst->hits, buf1);
-#endif
-                    }
-                }
-                dst->lasttime = curtime;
-            } else if (unlikely(accept_mark)) {
-                // we set the user-defined accept_mark and set NF_REPEAT verdict
-                // it's up to other iptables rules to decide what to do with this marked packet
-                status = nfq_set_verdict2(qh, id, NF_REPEAT, accept_mark, 0, NULL);
-                check_set_verdict_status(status);
-            } else {
-                // no accept_mark, just NF_ACCEPT the packet
-                status = nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
-                check_set_verdict_status(status);
-            }
-            break;
-        case NF_IP_FORWARD:
-            ip_src = ntohl(SRC_ADDR(payload));
-            ip_dst = ntohl(DST_ADDR(payload));
-            src = blocklist_find(&blocklist, ip_src, sranges, MAX_RANGES);
-            dst = blocklist_find(&blocklist, ip_dst, dranges, MAX_RANGES);
-            if (dst || src) {
-                int lasttime = 0;
-                if (likely(reject_mark)) {
-                    // we set the user-defined reject_mark and set NF_REPEAT verdict
-                    // it's up to other iptables rules to decide what to do with this marked packet
-                    status = nfq_set_verdict2(qh, id, NF_REPEAT, reject_mark, 0, NULL);
-                    check_set_verdict_status(status);
-                } else {
-                    status = nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
-                    check_set_verdict_status(status);
-                }
-                if (src) {
-                    src->hits++;
-                    lasttime = src->lasttime;
-                    src->lasttime = curtime;
-                }
-                if (dst) {
-                    dst->hits++;
-                    if (dst->lasttime > lasttime)
-                        lasttime = dst->lasttime;
-                    dst->lasttime = curtime;
-                }
-                if (lasttime < curtime - MIN_INTERVAL) {
-                    inet_ntop(AF_INET, &SRC_ADDR(payload), buf1, sizeof(buf1));
-                    inet_ntop(AF_INET, &DST_ADDR(payload), buf2, sizeof(buf2));
-#ifdef HAVE_DBUS
-                    if (use_dbus) {
-                        if (src) {
-                            nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_IN,
-                                                      reject_mark ? false : true,
-                                                      buf1, sranges, src->hits);
-                        }
-                        if (dst) {
-                            nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_OUT, reject_mark ? false : true,
-                                                      buf2, dranges, dst->hits);
-                        }
 /*
-                        nfblock_dbus_send_signal_nfq(do_log, curtime, LOG_NF_FWD, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
-                                                     FMT_ADDR_RANGES_HITS, ip_src, src ? sranges : NULL, src ? src->hits : 0,
-                                                     FMT_ADDR_RANGES_HITS, ip_dst, dst ? dranges : NULL, dst ? dst->hits : 0,
-                                                     (char *)NULL);
+  nfblock_dbus_send_signal_nfq(do_log, curtime, LOG_NF_FWD, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
+  FMT_ADDR_RANGES_HITS, ip_src, src ? sranges : NULL, src ? src->hits : 0,
+  FMT_ADDR_RANGES_HITS, ip_dst, dst ? dranges : NULL, dst ? dst->hits : 0,
+  (char *)NULL);
 */
-                    }
+                }
 #endif
-                    if (use_syslog) {
+                if (use_syslog) {
 
 #ifndef LOWMEM
-                        do_log(LOG_NOTICE, "Blocked FWD: %s->%s, hits: %d,%d, SRC: %s, DST: %s",
-                               src ? sranges[0] : "(unknown)", dst ? dranges[0] : "(unknown)",
-                               src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
+                    do_log(LOG_NOTICE, "Blocked FWD: %s->%s, hits: %d,%d, SRC: %s, DST: %s",
+                           src ? sranges[0] : "(unknown)", dst ? dranges[0] : "(unknown)",
+                           src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
 #else
-                        do_log(LOG_NOTICE, "Blocked FWD: hits: %d,%d, SRC: %s, DST: %s",
-                               src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
+                    do_log(LOG_NOTICE, "Blocked FWD: hits: %d,%d, SRC: %s, DST: %s",
+                           src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
 #endif
-                    }
                 }
-            } else if ( unlikely(accept_mark) ) {
-                // we set the user-defined accept_mark and set NF_REPEAT verdict
-                // it's up to other iptables rules to decide what to do with this marked packet
-                status = nfq_set_verdict2(qh, id, NF_REPEAT, accept_mark, 0, NULL);
-                check_set_verdict_status(status);
-            } else {
-                // no accept_mark, just NF_ACCEPT the packet
-                status = nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
-                check_set_verdict_status(status);
             }
-            break;
-        default:
-            do_log(LOG_NOTICE, "Not NF_LOCAL_IN/OUT/FORWARD packet!");
-            break;
+        } else if (unlikely(accept_mark)) {
+            // we set the user-defined accept_mark and set NF_REPEAT verdict
+            // it's up to other iptables rules to decide what to do with this marked packet
+            status = nfq_set_verdict2(qh, id, NF_REPEAT, accept_mark, 0, NULL);
+            check_set_verdict_status(status);
+        } else {
+            // no accept_mark, just NF_ACCEPT the packet
+            status = nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+            check_set_verdict_status(status);
         }
-    } else {
-        do_log(LOG_ERR, "NFQUEUE: can't get msg packet header.");
-        return 1;               // from nfqueue source: 0 = ok, >0 = soft error, <0 hard error
+        break;
+    default:
+        do_log(LOG_NOTICE, "Not NF_LOCAL_IN/OUT/FORWARD packet!");
+        break;
     }
+
     return 0;
 }
 
@@ -462,7 +471,7 @@ restart:
 
         curtime = time(NULL);
 
-        if (rv < 0) {
+        if (unlikely(rv < 0)) {
             if (errno == EINTR)
                 continue;
             do_log(LOG_ERR, "Error waiting for socket: %s", strerror(errno));
@@ -470,7 +479,7 @@ restart:
         }
         if (rv > 0) {
             rv = recv(fd, buf, sizeof(buf), 0);
-            if (rv < 0) {
+            if (unlikely(rv < 0)) {
                 if (errno == ENOBUFS) {
                     do_log(LOG_ERR, "Buffer overrun, restarting");
                     nfqueue_unbind();
