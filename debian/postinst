@@ -1,8 +1,10 @@
-#!/bin/sh -e
+#!/bin/sh
+
+set -e
 
 . /usr/share/debconf/confmodule
 
-if test "$1" = "configure"; then
+do_configure() {
     ENABLED=0
 
     mkdir -p /var/lib/nfblock
@@ -11,7 +13,7 @@ if test "$1" = "configure"; then
 
     if [ "$ENABLED" = "0" ]; then
         db_stop
-        exit 0
+        return
     fi
 
     db_get 'nfblock/download-blocklist' || true
@@ -22,10 +24,15 @@ if test "$1" = "configure"; then
         /etc/cron.weekly/nfblock
         echo "Downloading complete."
     fi
+}
 
+
+if test "$1" = "configure"; then
+    do_configure
 fi
+
+db_stop
 
 #DEBHELPER#
 
-db_stop
 exit 0

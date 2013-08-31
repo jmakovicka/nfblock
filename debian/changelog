@@ -1,18 +1,18 @@
-nfblock (0.6.3-1) unstable; urgency=low
+nfblock (0.6.3) unstable; urgency=low
 
   * New upstream release
   * use iblocklist.com by default
 
  -- Jindrich Makovicka <makovick@gmail.com>  Thu, 16 Jun 2011 15:51:34 +0200
 
-nfblock (0.6.2-1) unstable; urgency=low
+nfblock (0.6.2) unstable; urgency=low
 
   * New upstream release
   * blocklistpro.com downloader update
 
  -- Jindrich Makovicka <makovick@gmail.com>  Sun, 08 Mar 2009 10:24:42 +0100
 
-nfblock (0.6.1-1) unstable; urgency=low
+nfblock (0.6.1) unstable; urgency=low
 
   * New upstream release
   * download list from blocklistpro.com
@@ -20,7 +20,7 @@ nfblock (0.6.1-1) unstable; urgency=low
 
  -- Jindrich Makovicka <makovick@gmail.com>  Wed, 31 Dec 2008 16:40:21 +0100
 
-nfblock (0.6-1) unstable; urgency=low
+nfblock (0.6) unstable; urgency=low
 
   * New upstream release
   * D-Bus support
@@ -28,34 +28,34 @@ nfblock (0.6-1) unstable; urgency=low
 
  -- Jindrich Makovicka <makovick@gmail.com>  Sat, 13 Sep 2008 12:03:03 +0200
 
-nfblock (0.5-1) unstable; urgency=low
+nfblock (0.5) unstable; urgency=low
 
   * New upstream release
   * Proper PID file support
 
  -- Jindrich Makovicka <makovick@gmail.com>  Sat, 31 May 2008 13:11:56 +0200
 
-nfblock (0.4-1) unstable; urgency=low
+nfblock (0.4) unstable; urgency=low
 
   * New upstream release
   * List format autodetection fix
 
  -- Jindrich Makovicka <makovick@gmail.com>  Sat, 31 May 2008 12:15:09 +0200
 
-nfblock (0.3-1) unstable; urgency=low
+nfblock (0.3) unstable; urgency=low
 
   * New upstream release
   * Multiple blocklists support
 
  -- Jindrich Makovicka <makovick@gmail.com>  Thu, 30 Aug 2007 08:15:11 +0200
 
-nfblock (0.2-1) unstable; urgency=low
+nfblock (0.2) unstable; urgency=low
 
   * More debian stuff.
 
  -- Jindrich Makovicka <makovick@gmail.com>  Sat, 25 Aug 2007 10:26:18 +0200
 
-nfblock (0.1-1) unstable; urgency=low
+nfblock (0.1) unstable; urgency=low
 
   * Initial release.
 
