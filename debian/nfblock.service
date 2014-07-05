@@ -1,0 +1,7 @@
+[Unit]
+Description=netfilter blocking daemon
+
+[Service]
+User=root
+ExecStart=/usr/sbin/nfblockd -d /var/lib/nfblock/bt_level1.gz -p /var/run/nfblockd.pid
+PIDFile=/var/run/nfblockd.pid
