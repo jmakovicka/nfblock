@@ -49,7 +49,7 @@ LIBS+=-lz
 endif
 
 ifeq ($(DBUS),yes)
-CFLAGS+=-DHAVE_DBUS `pkg-config dbus-1 --cflags` -fPIC
+CFLAGS+=-DHAVE_DBUS $(shell pkg-config dbus-1 --cflags) -fPIC
 LIBS+=-ldl
 endif
 
@@ -103,7 +103,7 @@ src/test: $(TEST_OBJS)
 	$(CC) -o $@ $(LDFLAGS) $^ $(LIBS)
 
 src/dbus.so: src/dbus.o
-	$(CC) -shared $(LDFLAGS) -Wl,`pkg-config dbus-1 --libs` -o $@ $^
+	$(CC) -shared $(LDFLAGS) $^ -Wl,$(shell pkg-config dbus-1 --libs) -o $@
 clean:
 	rm -f *~ src/*.o src/*~ src/nfblockd src/dbus.so
 
