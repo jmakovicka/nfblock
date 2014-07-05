@@ -3,5 +3,5 @@ Description=netfilter blocking daemon
 
 [Service]
 User=root
-ExecStart=/usr/sbin/nfblockd -d /var/lib/nfblock/bt_level1.gz -p /var/run/nfblockd.pid
+ExecStart=/usr/sbin/nfblockd -d -p /var/run/nfblockd.pid -- /var/lib/nfblock/bt_level1.gz
 PIDFile=/var/run/nfblockd.pid

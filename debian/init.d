@@ -29,7 +29,7 @@ case "$1" in
     start)
         echo -n "Starting $DESC:"
         echo -n " nfblockd"
-        NFBLOCKD_ARGS="-d $BLOCKLIST_FILE -p $PIDFILE"
+        NFBLOCKD_ARGS="-d -p $PIDFILE -- $BLOCKLIST_FILE"
         if [ "$DBUS" = "0" ]; then
             NFBLOCKD_ARGS="$NFBLOCKD_ARGS --no-dbus"
         fi
