@@ -35,7 +35,10 @@
 #include <inttypes.h>
 #include <signal.h>
 #include <sys/time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <time.h>
+#include <dirent.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
@@ -81,7 +84,7 @@ static const char *pidfile_name = "/var/run/nfblockd.pid";
 static const char *current_charset = 0;
 
 static int blockfile_count = 0;
-static const char **blocklist_filenames = 0;
+static char **blocklist_filenames = 0;
 static const char **blocklist_charsets = 0;
 
 static volatile command_t command = CMD_NONE;
@@ -606,13 +609,13 @@ daemonize() {
     switch (fork()) {
     case -1:
         perror("fork");
-        exit(1);
+        exit(EXIT_FAILURE);
 
     case 0:
         break;
 
     default:
-        exit(0);
+        exit(EXIT_SUCCESS);
     }
 
     /* detach from the controlling terminal */
@@ -692,15 +695,79 @@ static struct option const long_options[] = {
 };
 
 void
-add_blocklist(const char *name, const char *charset)
+add_blocklist_file(const char *name, const char *charset)
 {
-    blocklist_filenames = (const char**)realloc(blocklist_filenames, sizeof(const char*) * (blockfile_count + 1));
+    blocklist_filenames = (char**)realloc(blocklist_filenames, sizeof(const char*) * (blockfile_count + 1));
     CHECK_OOM(blocklist_filenames);
     blocklist_charsets = (const char**)realloc(blocklist_charsets, sizeof(const char*) * (blockfile_count + 1));
     CHECK_OOM(blocklist_charsets);
-    blocklist_filenames[blockfile_count] = name;
+    blocklist_filenames[blockfile_count] = strdup(name);
     blocklist_charsets[blockfile_count] = charset;
     blockfile_count++;
+}
+
+void
+add_blocklist_dir(const char *name, const char *charset)
+{
+    DIR *dirp;
+    struct dirent *dp;
+
+    if ((dirp = opendir(name)) == NULL) {
+        fprintf(stderr, "Could not open directory %s: %s\n", name, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+
+    do {
+        errno = 0;
+        if ((dp = readdir(dirp)) != NULL) {
+            struct stat sb;
+            char buf[PATH_MAX];
+
+            snprintf(buf, sizeof(buf), "%s/%s", name, dp->d_name);
+            buf[sizeof(buf) - 1] = 0;
+
+            if (stat(buf, &sb) == -1) {
+                fprintf(stderr, "Cannot stat %s: %s\n", name, strerror(errno));
+                exit(EXIT_FAILURE);
+            }
+            if (sb.st_mode & S_IFREG) {
+                add_blocklist_file(buf, charset);
+            }
+        }
+    } while (dp != NULL);
+
+    if (errno != 0) {
+        fprintf(stderr, "Error reading directory %s: %s\n", name, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    if (closedir(dirp) != 0) {
+        fprintf(stderr, "Error closing directory %s: %s\n", name, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    return;
+}
+
+void
+add_blocklist(const char *name, const char *charset)
+{
+    struct stat sb;
+
+    if (stat(name, &sb) == -1) {
+        fprintf(stderr, "Cannot stat %s: %s\n", name, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    if (sb.st_mode & S_IFDIR)
+        add_blocklist_dir(name, charset);
+    else if (sb.st_mode & S_IFREG)
+        add_blocklist_file(name, charset);
+    else {
+        fprintf(stderr, "Unknown blocklist file type for %s\n", name);
+        exit(EXIT_FAILURE);
+    }
 }
 
 int
@@ -756,7 +823,7 @@ main(int argc, char *argv[])
 
     if (queue_num < 0 || queue_num > 65535) {
         print_usage();
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     for (i = 0; i < argc - optind; i++)
@@ -764,7 +831,7 @@ main(int argc, char *argv[])
 
     if (blockfile_count == 0) {
         print_usage();
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     blocklist_init(&blocklist);
@@ -824,6 +891,8 @@ out:
 #endif
 
     blocklist_clear(&blocklist, 0);
+    for (i = 0; i < blockfile_count; i++)
+        free(blocklist_filenames[i]);
     free(blocklist_filenames);
     free(blocklist_charsets);
 
