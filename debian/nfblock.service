@@ -2,6 +2,9 @@
 Description=netfilter blocking daemon
 
 [Service]
-User=root
+Type=forking
 ExecStart=/usr/sbin/nfblockd -d -p /var/run/nfblockd.pid -- /var/lib/nfblock
 PIDFile=/var/run/nfblockd.pid
+
+[Install]
+WantedBy=multi-user.target
