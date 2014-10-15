@@ -5,3 +5,4 @@ compiler:
   - clang
 
 script: make
+
