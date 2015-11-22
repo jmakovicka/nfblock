@@ -62,7 +62,7 @@ loadlist_dat(blocklist_t *blocklist, const char *filename, const char *charset)
     }
 
     ic = iconv_open("UTF-8", charset);
-    if (ic < 0) {
+    if (ic == (iconv_t) -1) {
         do_log(LOG_INFO, "Cannot initialize charset conversion: %s", strerror(errno));
         goto err;
     }
@@ -121,7 +121,7 @@ loadlist_p2p(blocklist_t *blocklist, const char *filename, const char *charset)
     }
 
     ic = iconv_open("UTF-8", charset);
-    if (ic < 0) {
+    if (ic == (iconv_t) -1) {
         do_log(LOG_INFO, "Cannot initialize charset conversion: %s", strerror(errno));
         goto err;
     }
@@ -241,7 +241,7 @@ loadlist_p2b(blocklist_t *blocklist, const char *filename)
         goto err;
     }
 
-    if (ic < 0) {
+    if (ic == (iconv_t) -1) {
         do_log(LOG_INFO, "Cannot initialize charset conversion: %s", strerror(errno));
         goto err;
     }

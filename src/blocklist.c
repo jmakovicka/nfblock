@@ -64,7 +64,7 @@ blocklist_append(blocklist_t *blocklist,
     e->ip_min = ip_min;
     e->ip_max = ip_max;
 #ifndef LOWMEM
-    if (ic >= 0) {
+    if (ic != (iconv_t) -1) {
         char buf2[MAX_LABEL_LENGTH];
         size_t insize, outsize;
         char *inb, *outb;
