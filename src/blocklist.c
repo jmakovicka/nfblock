@@ -95,7 +95,7 @@ blocklist_append(blocklist_t *blocklist,
 void
 blocklist_clear(blocklist_t *blocklist, int start)
 {
-    int i;
+    unsigned int i;
 
     for (i = start; i < blocklist->count; i++)
 #ifndef LOWMEM
@@ -159,7 +159,7 @@ blocklist_sort(blocklist_t *blocklist)
 void
 blocklist_trim(blocklist_t *blocklist)
 {
-    int i, j, k, merged = 0;
+    unsigned int i, j, k, merged = 0;
 
     if (blocklist->count == 0)
 	return;
@@ -275,12 +275,12 @@ compare_hits(const void *p1, const void *p2)
 void
 blocklist_stats(blocklist_t *blocklist)
 {
-    int i;
-    long total = 0;
+    unsigned int i;
+    unsigned long total = 0;
 
 #ifndef LOWMEM
     block_entry2_t **sorted_entries2;
-    int entry_count = 0;
+    unsigned int entry_count = 0;
 
     for (i = 0; i < blocklist->count; i++)
         if (blocklist->entries2[i].hits >= 1)
@@ -294,7 +294,7 @@ blocklist_stats(blocklist_t *blocklist)
     }
     qsort(sorted_entries2, entry_count, sizeof(block_entry2_t *), compare_hits);
 #else
-    int entry_count = blocklist->count;
+    unsigned int entry_count = blocklist->count;
 #endif
 
     do_log(LOG_INFO, "Blocker hit statistic:");
@@ -318,7 +318,7 @@ blocklist_stats(blocklist_t *blocklist)
                 do_log(LOG_INFO, "%s - %s-%s: %d", e2->name,
                        buf1, buf2, e2->hits);
             } else {
-                int j, cnt;
+                unsigned int j, cnt;
                 block_sub_entry_t *s;
                 cnt = 0;
                 for (j = e2->merged_idx; j < blocklist->subcount; j++) {
@@ -346,12 +346,12 @@ blocklist_stats(blocklist_t *blocklist)
 #ifndef LOWMEM
 block_entry2_t *
 blocklist_find(blocklist_t *blocklist, uint32_t ip,
-               const char **names, int max)
+               const char **names, unsigned int max)
 {
     block_entry_t e;
     block_entry_t *ret;
     block_entry2_t *ret2;
-    int i, cnt;
+    unsigned int i, cnt;
 
     e.ip_min = e.ip_max = ip;
     ret = bsearch(&e, blocklist->entries, blocklist->count, sizeof(block_entry_t), block_key_compare);
@@ -412,7 +412,7 @@ blocklist_find(blocklist_t *blocklist, uint32_t ip,
 void
 blocklist_dump(blocklist_t *blocklist)
 {
-    int i;
+    unsigned int i;
 
     for (i = 0; i < blocklist->count; i++) {
         uint32_t ip1, ip2;
@@ -430,7 +430,7 @@ blocklist_dump(blocklist_t *blocklist)
         if (e2->name) {
             printf("%d - %s-%s - %s\n", i, buf1, buf2, e2->name);
         } else {
-            int j;
+            unsigned int j;
             printf("%d - %s-%s is a composite range:\n", i, buf1, buf2);
             for (j = e2->merged_idx; j < blocklist->subcount; j++) {
                 block_sub_entry_t *s = &blocklist->subentries[j];

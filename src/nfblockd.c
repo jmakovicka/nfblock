@@ -227,7 +227,7 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     if (unlikely(status < 0)) {
         do_log(LOG_ERR, "NFQUEUE: can't get packet payload.");
         return 1;
-    } else  if (unlikely(status < sizeof(struct iphdr))) {
+    } else if (unlikely(status < (int)sizeof(struct iphdr))) {
         do_log(LOG_ERR, "NFQUEUE: packet payload too short.");
         return 1;
     }

@@ -197,7 +197,8 @@ loadlist_p2b(blocklist_t *blocklist, const char *filename)
 {
     FILE *f;
     uint8_t header[8];
-    int version, n, i, nlabels = 0;
+    unsigned int version, i, nlabels = 0;
+    size_t nread;
     uint32_t cnt, ip1, ip2, idx;
 #ifndef LOWMEM
     char **labels = NULL;
@@ -211,8 +212,8 @@ loadlist_p2b(blocklist_t *blocklist, const char *filename)
         return -1;
     }
 
-    n = fread(header, 1, 8, f);
-    if (n != 8)
+    nread = fread(header, 1, 8, f);
+    if (nread != 8)
         goto err;
 
     if (header[0] != 0xff
@@ -252,18 +253,19 @@ loadlist_p2b(blocklist_t *blocklist, const char *filename)
         for (;;) {
             char buf[MAX_LABEL_LENGTH];
             uint32_t ip1, ip2;
+            int n;
             n = read_cstr(buf, MAX_LABEL_LENGTH, f);
             if (n < 0 || n > MAX_LABEL_LENGTH) {
                 do_log(LOG_ERR, "P2B: Error reading label");
                 break;
             }
-            n = fread(&ip1, 1, 4, f);
-            if (n != 4) {
+            nread = fread(&ip1, 1, 4, f);
+            if (nread != 4) {
                 do_log(LOG_ERR, "P2B: Error reading range start");
                 break;
             }
-            n = fread(&ip2, 1, 4, f);
-            if (n != 4) {
+            nread = fread(&ip2, 1, 4, f);
+            if (nread != 4) {
                 do_log(LOG_ERR, "P2B: Error reading range end");
                 break;
             }
@@ -271,8 +273,8 @@ loadlist_p2b(blocklist_t *blocklist, const char *filename)
         }
         break;
     case 3:
-        n = fread(&cnt, 1, 4, f);
-        if (n != 4)
+        nread = fread(&cnt, 1, 4, f);
+        if (nread != 4)
             goto err;
         nlabels = ntohl(cnt);
 #ifndef LOWMEM
@@ -286,6 +288,7 @@ loadlist_p2b(blocklist_t *blocklist, const char *filename)
 #endif
         for (i = 0; i < nlabels; i++) {
             char buf[MAX_LABEL_LENGTH];
+            int n;
             n = read_cstr(buf, MAX_LABEL_LENGTH, f);
             if (n < 0 || n > MAX_LABEL_LENGTH) {
                 do_log(LOG_ERR, "P2B3: Error reading label");
@@ -296,23 +299,23 @@ loadlist_p2b(blocklist_t *blocklist, const char *filename)
 #endif
         }
 
-        n = fread(&cnt, 1, 4, f);
-        if (n != 4)
+        nread = fread(&cnt, 1, 4, f);
+        if (nread != 4)
             break;
         cnt = ntohl(cnt);
         for (i = 0; i < cnt; i++) {
-            n = fread(&idx, 1, 4, f);
-            if (n != 4 || ntohl(idx) > nlabels) {
+            nread = fread(&idx, 1, 4, f);
+            if (nread != 4 || ntohl(idx) > nlabels) {
                 do_log(LOG_ERR, "P2B3: Error reading label index");
                 goto err;
             }
-            n = fread(&ip1, 1, 4, f);
-            if (n != 4) {
+            nread = fread(&ip1, 1, 4, f);
+            if (nread != 4) {
                 do_log(LOG_ERR, "P2B3: Error reading range start");
                 goto err;
             }
-            n = fread(&ip2, 1, 4, f);
-            if (n != 4) {
+            nread = fread(&ip2, 1, 4, f);
+            if (nread != 4) {
                 do_log(LOG_ERR, "P2B3: Error reading range end");
                 goto err;
             }
