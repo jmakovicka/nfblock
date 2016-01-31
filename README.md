@@ -1,6 +1,8 @@
 NFblockD Netfilter blocking daemon
 ==================================
 
+[![Build Status](https://travis-ci.org/jmakovicka/nfblock.svg?branch=master)](https://travis-ci.org/jmakovicka/nfblock)
+
 (c) 2007 Jindrich Makovicka <makovick@gmail.com>
 
 Portions (c) 2004 Morpheus <ebutera@users.berlios.de>
