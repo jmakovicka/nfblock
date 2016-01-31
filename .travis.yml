@@ -10,13 +10,14 @@ compiler:
 before_script:
   - sudo apt-get update -qq
   - sudo apt-get install libdbus-1-dev libnfnetlink-dev libmnl-dev
-  - mkdir -p $HOME/build
-  - cd $HOME/build
-  - git clone git://git.netfilter.org/libnetfilter_queue
-  - cd $HOME/build/libnetfilter_queue
-  - ./autogen.sh
-  - ./configure --prefix=/usr
-  - sudo make install
+
+#  - mkdir -p $HOME/build
+#  - cd $HOME/build
+#  - git clone git://git.netfilter.org/libnetfilter_queue
+#  - cd $HOME/build/libnetfilter_queue
+#  - ./autogen.sh
+#  - ./configure --prefix=/usr
+#  - sudo make install
 
 script: make
 
