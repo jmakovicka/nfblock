@@ -2,7 +2,7 @@ Source: nfblock
 Section: net
 Priority: optional
 Maintainer: Jindřich Makovička <makovick@gmail.com>
-Build-Depends: debhelper (>= 8.0.0), dh-systemd (>= 1.5), zlib1g-dev, libnetfilter-queue-dev, libnfnetlink-dev, libdbus-1-dev
+Build-Depends: debhelper (>= 8.0.0), zlib1g-dev, libnetfilter-queue-dev, libnfnetlink-dev, libdbus-1-dev
 Standards-Version: 3.9.4
 Homepage: https://github.com/jmakovicka/nfblock
 Vcs-Git: https://github.com/jmakovicka/nfblock.git
