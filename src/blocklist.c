@@ -141,10 +141,8 @@ block_entry_compare(const void *a, const void *b)
 }
 
 static int
-block_key_compare(const void *a, const void *b)
+block_key_compare(const block_entry_t *key, const block_entry_t *entry)
 {
-    const block_entry_t *key = a;
-    const block_entry_t *entry = b;
     if (key->ip_max < entry->ip_min) return -1;
     if (key->ip_min > entry->ip_max) return 1;
     return 0;
@@ -343,6 +341,32 @@ blocklist_stats(blocklist_t *blocklist)
 #endif
 }
 
+block_entry_t *
+search_key(blocklist_t *blocklist, const void *key)
+{
+    block_entry_t* base = blocklist->entries;
+    size_t nel = blocklist->count;
+
+    while (nel > 0) {
+        block_entry_t *try;
+        int sign;
+
+        try = base + nel / 2;
+        sign = block_key_compare(key, try);
+        if (!sign) {
+            return try;
+        } else if (nel == 1) {
+            break;
+        } else if (sign < 0) {
+            nel /= 2;
+        } else {
+            base = try;
+            nel -= nel / 2;
+        }
+    }
+    return NULL;
+}
+
 #ifndef LOWMEM
 block_entry2_t *
 blocklist_find(blocklist_t *blocklist, uint32_t ip,
@@ -354,7 +378,7 @@ blocklist_find(blocklist_t *blocklist, uint32_t ip,
     unsigned int i, cnt;
 
     e.ip_min = e.ip_max = ip;
-    ret = bsearch(&e, blocklist->entries, blocklist->count, sizeof(block_entry_t), block_key_compare);
+    ret = search_key(blocklist, &e);
     if (!ret)
         // entry not found
         return 0;
@@ -399,7 +423,7 @@ blocklist_find(blocklist_t *blocklist, uint32_t ip,
     block_entry_t *ret;
 
     e.ip_min = e.ip_max = ip;
-    ret = bsearch(&e, blocklist->entries, blocklist->count, sizeof(block_entry_t), block_key_compare);
+    ret = bsearch(blocklist, &e);
 
     if (!ret)
         // entry not found
