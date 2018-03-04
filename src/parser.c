@@ -21,17 +21,17 @@
    Boston, MA 02110-1301, USA.
 */
 
-#include <stdlib.h>
 #include <arpa/inet.h>
-#include <syslog.h>
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 
 #include "parser.h"
 #include "stream.h"
 
 static void
-strip_crlf(char *str)
+strip_crlf(char* str)
 {
     while (*str) {
         if (*str == '\r' || *str == '\n') {
@@ -43,7 +43,7 @@ strip_crlf(char *str)
 }
 
 static int
-loadlist_dat(blocklist_t *blocklist, const char *filename, const char *charset)
+loadlist_dat(blocklist_t* blocklist, const char* filename, const char* charset)
 {
     stream_t s;
     char buf[MAX_LABEL_LENGTH], name[MAX_LABEL_LENGTH];
@@ -62,7 +62,7 @@ loadlist_dat(blocklist_t *blocklist, const char *filename, const char *charset)
     }
 
     ic = iconv_open("UTF-8", charset);
-    if (ic == (iconv_t) -1) {
+    if (ic == (iconv_t)-1) {
         do_log(LOG_INFO, "Cannot initialize charset conversion: %s", strerror(errno));
         goto err;
     }
@@ -81,16 +81,18 @@ loadlist_dat(blocklist_t *blocklist, const char *filename, const char *charset)
 
         memset(name, 0, sizeof(name));
         n = sscanf(buf, "%hhu.%hhu.%hhu.%hhu - %hhu.%hhu.%hhu.%hhu , %d , %199c",
-                   &ip1.b[0], &ip1.b[1], &ip1.b[2], &ip1.b[3],
-                   &ip2.b[0], &ip2.b[1], &ip2.b[2], &ip2.b[3],
-                   &dummy, name);
-        if (n != 10) continue;
+            &ip1.b[0], &ip1.b[1], &ip1.b[2], &ip1.b[3],
+            &ip2.b[0], &ip2.b[1], &ip2.b[2], &ip2.b[3],
+            &dummy, name);
+        if (n != 10)
+            continue;
         blocklist_append(blocklist, ntohl(ip1.n), ntohl(ip2.n), name, ic);
         ok++;
     }
     stream_close(&s);
 
-    if (ok == 0) goto err;
+    if (ok == 0)
+        goto err;
 
     ret = 0;
 
@@ -102,7 +104,7 @@ err:
 }
 
 static int
-loadlist_p2p(blocklist_t *blocklist, const char *filename, const char *charset)
+loadlist_p2p(blocklist_t* blocklist, const char* filename, const char* charset)
 {
     stream_t s;
     char buf[MAX_LABEL_LENGTH], name[MAX_LABEL_LENGTH];
@@ -121,14 +123,14 @@ loadlist_p2p(blocklist_t *blocklist, const char *filename, const char *charset)
     }
 
     ic = iconv_open("UTF-8", charset);
-    if (ic == (iconv_t) -1) {
+    if (ic == (iconv_t)-1) {
         do_log(LOG_INFO, "Cannot initialize charset conversion: %s", strerror(errno));
         goto err;
     }
 
     total = ok = 0;
     while (stream_getline(buf, MAX_LABEL_LENGTH, &s)) {
-        char *colon;
+        char* colon;
 
         strip_crlf(buf);
         total++;
@@ -150,8 +152,8 @@ loadlist_p2p(blocklist_t *blocklist, const char *filename, const char *charset)
         strncpy(name, buf, sizeof(name));
         name[sizeof(name) - 1] = '\0';
         n = sscanf(colon + 1, "%hhu.%hhu.%hhu.%hhu-%hhu.%hhu.%hhu.%hhu",
-                   &ip1.b[0], &ip1.b[1], &ip1.b[2], &ip1.b[3],
-                   &ip2.b[0], &ip2.b[1], &ip2.b[2], &ip2.b[3]);
+            &ip1.b[0], &ip1.b[1], &ip1.b[2], &ip1.b[3],
+            &ip2.b[0], &ip2.b[1], &ip2.b[2], &ip2.b[3]);
         if (n != 8) {
             do_log(LOG_WARNING, "Error parsing %s\n", buf);
             continue;
@@ -162,7 +164,8 @@ loadlist_p2p(blocklist_t *blocklist, const char *filename, const char *charset)
     }
     stream_close(&s);
 
-    if (ok == 0) goto err;
+    if (ok == 0)
+        goto err;
 
     ret = 0;
 
@@ -174,7 +177,7 @@ err:
 }
 
 static int
-read_cstr(char *buf, int maxsize, FILE *f)
+read_cstr(char* buf, int maxsize, FILE* f)
 {
     int c, n = 0;
     for (;;) {
@@ -193,18 +196,18 @@ read_cstr(char *buf, int maxsize, FILE *f)
 }
 
 static int
-loadlist_p2b(blocklist_t *blocklist, const char *filename)
+loadlist_p2b(blocklist_t* blocklist, const char* filename)
 {
-    FILE *f;
+    FILE* f;
     uint8_t header[8];
     unsigned int version, i, nlabels = 0;
     size_t nread;
     uint32_t cnt, ip1, ip2, idx;
 #ifndef LOWMEM
-    char **labels = NULL;
+    char** labels = NULL;
 #endif
     int ret = -1;
-    iconv_t ic = (iconv_t) -1;
+    iconv_t ic = (iconv_t)-1;
 
     f = fopen(filename, "r");
     if (!f) {
@@ -222,8 +225,7 @@ loadlist_p2b(blocklist_t *blocklist, const char *filename)
         || header[3] != 0xff
         || header[4] != 'P'
         || header[5] != '2'
-        || header[6] != 'B')
-    {
+        || header[6] != 'B') {
         goto err;
     }
 
@@ -242,7 +244,7 @@ loadlist_p2b(blocklist_t *blocklist, const char *filename)
         goto err;
     }
 
-    if (ic == (iconv_t) -1) {
+    if (ic == (iconv_t)-1) {
         do_log(LOG_INFO, "Cannot initialize charset conversion: %s", strerror(errno));
         goto err;
     }
@@ -346,7 +348,7 @@ err:
 }
 
 int
-load_list(blocklist_t *blocklist, const char *filename, const char *charset)
+load_list(blocklist_t* blocklist, const char* filename, const char* charset)
 {
     int prevcount;
 

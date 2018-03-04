@@ -21,22 +21,22 @@
    Boston, MA 02110-1301, USA.
 */
 
+#include "stream.h"
+#include "nfblockd.h"
+#include <errno.h>
 #include <string.h>
 #include <syslog.h>
-#include <errno.h>
-#include "nfblockd.h"
-#include "stream.h"
 
 #ifdef HAVE_ZLIB
 int
-stream_open(stream_t *stream, const char *filename)
+stream_open(stream_t* stream, const char* filename)
 {
     int l = strlen(filename);
     if (l >= 3 && strcmp(filename + l - 3, ".gz") == 0) {
         stream->f = fopen(filename, "r");
         if (!stream->f) {
             do_log(LOG_INFO, "Cannot open file %s: %s",
-                   filename, strerror(errno));
+                filename, strerror(errno));
             return -1;
         }
         stream->compressed = 1;
@@ -57,7 +57,7 @@ stream_open(stream_t *stream, const char *filename)
         stream->f = fopen(filename, "r");
         if (!stream->f) {
             do_log(LOG_INFO, "Cannot open file %s: %s",
-                   filename, strerror(errno));
+                filename, strerror(errno));
             return -1;
         }
     }
@@ -65,7 +65,7 @@ stream_open(stream_t *stream, const char *filename)
 }
 
 int
-stream_close(stream_t *stream)
+stream_close(stream_t* stream)
 {
     if (stream->compressed) {
         if (!stream->eos) {
@@ -84,17 +84,17 @@ stream_close(stream_t *stream)
     return 0;
 }
 
-char *
-stream_getline(char *buf, int max, stream_t *stream)
+char*
+stream_getline(char* buf, int max, stream_t* stream)
 {
     if (stream->compressed) {
         int ret, avail;
-        unsigned char *ptr;
+        unsigned char* ptr;
         if (!stream->eos && stream->strm.avail_out) {
             do {
                 if (stream->strm.avail_in == 0) {
                     stream->strm.avail_in = fread(stream->in, 1,
-                                                  CHUNK, stream->f);
+                        CHUNK, stream->f);
                     if (stream->strm.avail_in == 0) {
                         if (ferror(stream->f))
                             do_log(LOG_INFO, "Error reading file");
@@ -112,7 +112,7 @@ stream_getline(char *buf, int max, stream_t *stream)
                     inflateEnd(&stream->strm);
                     goto out;
                 case Z_NEED_DICT:
-                    ret = Z_DATA_ERROR;     /* and fall through */
+                    ret = Z_DATA_ERROR; /* and fall through */
                 case Z_DATA_ERROR:
                 case Z_MEM_ERROR:
                     do_log(LOG_INFO, "Error during decompression");
@@ -150,7 +150,7 @@ stream_getline(char *buf, int max, stream_t *stream)
         }
         return NULL;
     } else {
-        char *ret;
+        char* ret;
         ret = fgets(buf, max, stream->f);
         if (!ret && ferror(stream->f))
             do_log(LOG_INFO, "Error reading file");
@@ -161,13 +161,13 @@ stream_getline(char *buf, int max, stream_t *stream)
 #else /* !HAVE_ZLIB */
 
 int
-stream_open(stream_t *stream, const char *filename)
+stream_open(stream_t* stream, const char* filename)
 {
     stream->f = fopen(filename, "r");
 
     if (!stream->f) {
         do_log(LOG_INFO, "Cannot open file %s: %s",
-               filename, strerror(errno));
+            filename, strerror(errno));
         return -1;
     }
 
@@ -175,7 +175,7 @@ stream_open(stream_t *stream, const char *filename)
 }
 
 int
-stream_close(stream_t *stream)
+stream_close(stream_t* stream)
 {
     if (fclose(stream->f) < 0) {
         do_log(LOG_INFO, "Error closing file: %s", strerror(errno));
@@ -185,10 +185,10 @@ stream_close(stream_t *stream)
     return 0;
 }
 
-char *
-stream_getline(char *buf, int max, stream_t *stream)
+char*
+stream_getline(char* buf, int max, stream_t* stream)
 {
-    char *ret;
+    char* ret;
     ret = fgets(buf, max, stream->f);
     if (!ret)
         do_log(LOG_INFO, "Error reading file");

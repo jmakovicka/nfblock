@@ -23,44 +23,44 @@
    Boston, MA 02110-1301, USA.
 */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
-#include <limits.h>
-#include <unistd.h>
-#include <getopt.h>
-#include <errno.h>
-#include <syslog.h>
-#include <inttypes.h>
-#include <signal.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <time.h>
+#include <arpa/inet.h>
 #include <dirent.h>
+#include <errno.h>
+#include <getopt.h>
+#include <inttypes.h>
+#include <libnetfilter_queue/libnetfilter_queue.h>
+#include <limits.h>
+#include <linux/netfilter_ipv4.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
-#include <arpa/inet.h>
-#include <linux/netfilter_ipv4.h>
-#include <libnetfilter_queue/libnetfilter_queue.h>
 #include <poll.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <syslog.h>
+#include <time.h>
+#include <unistd.h>
 
 #ifdef HAVE_DBUS
-#include <dlfcn.h>
 #include "dbus.h"
+#include <dlfcn.h>
 #endif
 
 #include "blocklist.h"
-#include "parser.h"
 #include "nfblockd.h"
+#include "parser.h"
 
-#define likely(x)       __builtin_expect((x),1)
-#define unlikely(x)     __builtin_expect((x),0)
+#define likely(x) __builtin_expect((x), 1)
+#define unlikely(x) __builtin_expect((x), 0)
 
-#define SRC_ADDR(pkt) (((struct iphdr *)pkt)->saddr)
-#define DST_ADDR(pkt) (((struct iphdr *)pkt)->daddr)
+#define SRC_ADDR(pkt) (((struct iphdr*)pkt)->saddr)
+#define DST_ADDR(pkt) (((struct iphdr*)pkt)->daddr)
 
 #define MIN_INTERVAL 60
 
@@ -79,23 +79,23 @@ static int opt_verbose = 0;
 static int queue_num = 0;
 static int use_syslog = 1;
 static uint32_t accept_mark = 0, reject_mark = 0;
-static const char *pidfile_name = "/var/run/nfblockd.pid";
+static const char* pidfile_name = "/var/run/nfblockd.pid";
 
-static const char *current_charset = 0;
+static const char* current_charset = 0;
 
 static int blockfile_count = 0;
-static char **blocklist_filenames = 0;
-static const char **blocklist_charsets = 0;
+static char** blocklist_filenames = 0;
+static const char** blocklist_charsets = 0;
 
 static volatile command_t command = CMD_NONE;
 static time_t curtime = 0;
 static FILE* pidfile = NULL;
 
-struct nfq_handle *nfqueue_h = 0;
-struct nfq_q_handle *nfqueue_qh = 0;
+struct nfq_handle* nfqueue_h = 0;
+struct nfq_q_handle* nfqueue_qh = 0;
 
 void
-do_log(int priority, const char *format, ...)
+do_log(int priority, const char* format, ...)
 {
     va_list ap;
 
@@ -119,25 +119,25 @@ do_log(int priority, const char *format, ...)
 #ifdef HAVE_DBUS
 
 static int use_dbus = 1;
-static void *dbus_lh = NULL;
+static void* dbus_lh = NULL;
 
 static nfblock_dbus_init_t nfblock_dbus_init = NULL;
 static nfblock_dbus_send_blocked_t nfblock_dbus_send_blocked = NULL;
 
-#define do_dlsym(symbol)                                                \
-    do {                                                                \
-        symbol = dlsym(dbus_lh, # symbol);                              \
-        err = dlerror();                                                \
-        if (err) {                                                      \
-            do_log(LOG_ERR, "Cannot get symbol %s: %s", # symbol, err); \
-            goto out_err;                                               \
-        }                                                               \
+#define do_dlsym(symbol)                                               \
+    do {                                                               \
+        symbol = dlsym(dbus_lh, #symbol);                              \
+        err = dlerror();                                               \
+        if (err) {                                                     \
+            do_log(LOG_ERR, "Cannot get symbol %s: %s", #symbol, err); \
+            goto out_err;                                              \
+        }                                                              \
     } while (0)
 
 static int
 open_dbus()
 {
-    char *err;
+    char* err;
 
     dbus_lh = dlopen(PLUGINDIR "/dbus.so", RTLD_NOW);
     if (!dbus_lh) {
@@ -199,12 +199,12 @@ check_set_verdict_status(int status)
 
 #define MAX_RANGES 16
 static int
-nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
-           struct nfq_data *nfa, void *data)
+nfqueue_cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg,
+    struct nfq_data* nfa, void* data)
 {
     int id = 0, status = 0;
-    struct nfqnl_msg_packet_hdr *ph;
-    unsigned char *payload;
+    struct nfqnl_msg_packet_hdr* ph;
+    unsigned char* payload;
     block_entry2_t *src, *dst;
     uint32_t ip_src, ip_dst;
     char buf1[INET_ADDRSTRLEN], buf2[INET_ADDRSTRLEN];
@@ -247,17 +247,17 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 #ifdef HAVE_DBUS
                 if (use_dbus) {
                     nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_IN,
-                                              reject_mark ? false : true,
-                                              buf1, sranges, src->hits);
+                        reject_mark ? false : true,
+                        buf1, sranges, src->hits);
                 }
 #endif
                 if (use_syslog) {
 #ifndef LOWMEM
                     do_log(LOG_NOTICE, "Blocked IN: %s, hits: %d, SRC: %s",
-                           sranges[0], src->hits, buf1);
+                        sranges[0], src->hits, buf1);
 #else
                     do_log(LOG_NOTICE, "Blocked IN: hits: %d, SRC: %s",
-                           src->hits, buf1);
+                        src->hits, buf1);
 #endif
                 }
             }
@@ -292,17 +292,17 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 #ifdef HAVE_DBUS
                 if (use_dbus) {
                     nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_OUT,
-                                              reject_mark ? false : true,
-                                              buf1, dranges, dst->hits);
+                        reject_mark ? false : true,
+                        buf1, dranges, dst->hits);
                 }
 #endif
                 if (use_syslog) {
 #ifndef LOWMEM
                     do_log(LOG_NOTICE, "Blocked OUT: %s, hits: %d, DST: %s",
-                           dranges[0], dst->hits, buf1);
+                        dranges[0], dst->hits, buf1);
 #else
                     do_log(LOG_NOTICE, "Blocked OUT: %s, hits: %d, DST: %s",
-                           dst->hits, buf1);
+                        dst->hits, buf1);
 #endif
                 }
             }
@@ -352,14 +352,14 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 if (use_dbus) {
                     if (src) {
                         nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_IN,
-                                                  reject_mark ? false : true,
-                                                  buf1, sranges, src->hits);
+                            reject_mark ? false : true,
+                            buf1, sranges, src->hits);
                     }
                     if (dst) {
                         nfblock_dbus_send_blocked(do_log, curtime, LOG_NF_OUT, reject_mark ? false : true,
-                                                  buf2, dranges, dst->hits);
+                            buf2, dranges, dst->hits);
                     }
-/*
+                    /*
   nfblock_dbus_send_signal_nfq(do_log, curtime, LOG_NF_FWD, reject_mark ? NFBP_ACTION_MARK : NFBP_ACTION_DROP,
   FMT_ADDR_RANGES_HITS, ip_src, src ? sranges : NULL, src ? src->hits : 0,
   FMT_ADDR_RANGES_HITS, ip_dst, dst ? dranges : NULL, dst ? dst->hits : 0,
@@ -371,11 +371,11 @@ nfqueue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 
 #ifndef LOWMEM
                     do_log(LOG_NOTICE, "Blocked FWD: %s->%s, hits: %d,%d, SRC: %s, DST: %s",
-                           src ? sranges[0] : "(unknown)", dst ? dranges[0] : "(unknown)",
-                           src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
+                        src ? sranges[0] : "(unknown)", dst ? dranges[0] : "(unknown)",
+                        src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
 #else
                     do_log(LOG_NOTICE, "Blocked FWD: hits: %d,%d, SRC: %s, DST: %s",
-                           src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
+                        src ? src->hits : 0, dst ? dst->hits : 0, buf1, buf2);
 #endif
                 }
             }
@@ -452,9 +452,9 @@ nfqueue_unbind()
 }
 
 static int
-nfqueue_loop ()
+nfqueue_loop()
 {
-    struct nfnl_handle *nh;
+    struct nfnl_handle* nh;
     int fd, rv;
     char buf[2048];
     struct pollfd fds[1];
@@ -497,7 +497,7 @@ restart:
                 nfq_handle_packet(nfqueue_h, buf, rv);
         }
 
-        if (unlikely (command != CMD_NONE)) {
+        if (unlikely(command != CMD_NONE)) {
             switch (command) {
             case CMD_DUMPSTATS:
                 blocklist_stats(&blocklist);
@@ -522,7 +522,7 @@ out:
 }
 
 static void
-sighandler(int sig, siginfo_t *info, void *context)
+sighandler(int sig, siginfo_t* info, void* context)
 {
     switch (sig) {
     case SIGUSR1:
@@ -576,19 +576,19 @@ install_sighandler()
     return 0;
 }
 
-static FILE *
-create_pidfile(const char *name)
+static FILE*
+create_pidfile(const char* name)
 {
-    FILE *f;
+    FILE* f;
 
     f = fopen(name, "w");
-    if (f == NULL){
+    if (f == NULL) {
         fprintf(stderr, "Unable to create PID file %s: %s\n", name, strerror(errno));
         return NULL;
     }
 
     /* this works even if pidfile is stale after daemon is sigkilled */
-    if (lockf(fileno(f), F_TLOCK, 0) == -1){
+    if (lockf(fileno(f), F_TLOCK, 0) == -1) {
         fprintf(stderr, "Unable to set exclusive lock for pidfile %s: %s\n", name, strerror(errno));
         return NULL;
     }
@@ -602,9 +602,9 @@ create_pidfile(const char *name)
     return f;
 }
 
-
 static void
-daemonize() {
+daemonize()
+{
     /* Fork off and have parent exit. */
     switch (fork()) {
     case -1:
@@ -680,22 +680,21 @@ print_usage()
     fprintf(stderr, "\n");
 }
 
-enum long_option
-{
+enum long_option {
     OPTION_NO_SYSLOG = CHAR_MAX + 1,
     OPTION_NO_DBUS
 };
 
 static struct option const long_options[] = {
-    {"no-syslog", no_argument, NULL, OPTION_NO_SYSLOG},
+    { "no-syslog", no_argument, NULL, OPTION_NO_SYSLOG },
 #ifdef HAVE_DBUS
-    {"no-dbus", no_argument, NULL, OPTION_NO_DBUS},
+    { "no-dbus", no_argument, NULL, OPTION_NO_DBUS },
 #endif
-    {0, 0, 0, 0}
+    { 0, 0, 0, 0 }
 };
 
 void
-add_blocklist_file(const char *name, const char *charset)
+add_blocklist_file(const char* name, const char* charset)
 {
     blocklist_filenames = (char**)realloc(blocklist_filenames, sizeof(const char*) * (blockfile_count + 1));
     CHECK_OOM(blocklist_filenames);
@@ -707,16 +706,15 @@ add_blocklist_file(const char *name, const char *charset)
 }
 
 void
-add_blocklist_dir(const char *name, const char *charset)
+add_blocklist_dir(const char* name, const char* charset)
 {
-    DIR *dirp;
-    struct dirent *dp;
+    DIR* dirp;
+    struct dirent* dp;
 
     if ((dirp = opendir(name)) == NULL) {
         fprintf(stderr, "Could not open directory %s: %s\n", name, strerror(errno));
         exit(EXIT_FAILURE);
     }
-
 
     do {
         errno = 0;
@@ -751,7 +749,7 @@ add_blocklist_dir(const char *name, const char *charset)
 }
 
 void
-add_blocklist(const char *name, const char *charset)
+add_blocklist(const char* name, const char* charset)
 {
     struct stat sb;
 
@@ -771,15 +769,17 @@ add_blocklist(const char *name, const char *charset)
 }
 
 int
-main(int argc, char *argv[])
+main(int argc, char* argv[])
 {
     int opt, i;
 
     while ((opt = getopt_long(argc, argv, "q:a:r:dbp:f:v"
 #ifndef LOWMEM
-                              "c:"
+                                          "c:"
 #endif
-                              , long_options, NULL)) != -1) {
+                ,
+                long_options, NULL))
+        != -1) {
         switch (opt) {
         case 'd':
             opt_daemon = 1;

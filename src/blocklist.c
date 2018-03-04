@@ -23,16 +23,16 @@
 
 #include "blocklist.h"
 #include "nfblockd.h"
+#include <arpa/inet.h>
+#include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
-#include <errno.h>
-#include <assert.h>
-#include <arpa/inet.h>
 
 void
-blocklist_init(blocklist_t *blocklist)
+blocklist_init(blocklist_t* blocklist)
 {
     blocklist->entries = NULL;
     blocklist->entries2 = NULL;
@@ -45,12 +45,12 @@ blocklist_init(blocklist_t *blocklist)
 }
 
 void
-blocklist_append(blocklist_t *blocklist,
-                 uint32_t ip_min, uint32_t ip_max,
-                 const char *name, iconv_t ic)
+blocklist_append(blocklist_t* blocklist,
+    uint32_t ip_min, uint32_t ip_max,
+    const char* name, iconv_t ic)
 {
-    block_entry_t *e;
-    block_entry2_t *e2;
+    block_entry_t* e;
+    block_entry2_t* e2;
 
     if (blocklist->size == blocklist->count) {
         blocklist->size += 16384;
@@ -64,14 +64,14 @@ blocklist_append(blocklist_t *blocklist,
     e->ip_min = ip_min;
     e->ip_max = ip_max;
 #ifndef LOWMEM
-    if (ic != (iconv_t) -1) {
+    if (ic != (iconv_t)-1) {
         char buf2[MAX_LABEL_LENGTH];
         size_t insize, outsize;
         char *inb, *outb;
         int ret;
 
         insize = strlen(name);
-        inb = (char *)name;
+        inb = (char*)name;
         outsize = MAX_LABEL_LENGTH - 1;
         outb = buf2;
         memset(buf2, 0, MAX_LABEL_LENGTH);
@@ -93,7 +93,7 @@ blocklist_append(blocklist_t *blocklist,
 }
 
 void
-blocklist_clear(blocklist_t *blocklist, int start)
+blocklist_clear(blocklist_t* blocklist, int start)
 {
     unsigned int i;
 
@@ -122,49 +122,53 @@ blocklist_clear(blocklist_t *blocklist, int start)
     } else {
         blocklist->size = blocklist->count = start;
         blocklist->entries = realloc(blocklist->entries,
-                                     sizeof(block_entry_t) * blocklist->size);
+            sizeof(block_entry_t) * blocklist->size);
         blocklist->entries2 = realloc(blocklist->entries2,
-                                     sizeof(block_entry2_t) * blocklist->size);
+            sizeof(block_entry2_t) * blocklist->size);
         CHECK_OOM(blocklist->entries);
         CHECK_OOM(blocklist->entries2);
     }
 }
 
 static int
-block_entry_compare(const void *a, const void *b)
+block_entry_compare(const void* a, const void* b)
 {
-    const block_entry_t *e1 = a;
-    const block_entry_t *e2 = b;
-    if (e1->ip_min < e2->ip_min) return -1;
-    if (e1->ip_min > e2->ip_min) return 1;
+    const block_entry_t* e1 = a;
+    const block_entry_t* e2 = b;
+    if (e1->ip_min < e2->ip_min)
+        return -1;
+    if (e1->ip_min > e2->ip_min)
+        return 1;
     return 0;
 }
 
 static int
-block_key_compare(const block_entry_t *key, const block_entry_t *entry)
+block_key_compare(const block_entry_t* key, const block_entry_t* entry)
 {
-    if (key->ip_max < entry->ip_min) return -1;
-    if (key->ip_min > entry->ip_max) return 1;
+    if (key->ip_max < entry->ip_min)
+        return -1;
+    if (key->ip_min > entry->ip_max)
+        return 1;
     return 0;
 }
 
 void
-blocklist_sort(blocklist_t *blocklist)
+blocklist_sort(blocklist_t* blocklist)
 {
     qsort(blocklist->entries, blocklist->count, sizeof(block_entry_t), block_entry_compare);
 }
 
 void
-blocklist_trim(blocklist_t *blocklist)
+blocklist_trim(blocklist_t* blocklist)
 {
     unsigned int i, j, k, merged = 0;
 
     if (blocklist->count == 0)
-	return;
+        return;
 
 #ifndef LOWMEM
     /* pessimistic, will be reallocated later */
-    blocklist->subentries = (block_sub_entry_t *)malloc(blocklist->count * sizeof(block_sub_entry_t));
+    blocklist->subentries = (block_sub_entry_t*)malloc(blocklist->count * sizeof(block_sub_entry_t));
     CHECK_OOM(blocklist->subentries);
     blocklist->subcount = 0;
 #endif
@@ -183,7 +187,7 @@ blocklist_trim(blocklist_t *blocklist)
         if (j > i + 1) {
             uint32_t ip1, ip2;
             char buf1[INET_ADDRSTRLEN], buf2[INET_ADDRSTRLEN];
-            char *tmp = malloc(32 * (j - i + 1) + 1);
+            char* tmp = malloc(32 * (j - i + 1) + 1);
             CHECK_OOM(tmp);
             /* List the merged entries */
             tmp[0] = 0;
@@ -211,12 +215,14 @@ blocklist_trim(blocklist_t *blocklist)
                 blocklist->subentries[blocklist->subcount].ip_max = blocklist->entries[k].ip_max;
                 blocklist->subentries[blocklist->subcount].name = blocklist->entries2[k].name;
                 blocklist->subcount++;
-                if (k > i) blocklist->entries2[k].hits = -1;
+                if (k > i)
+                    blocklist->entries2[k].hits = -1;
             }
             blocklist->entries2[i].name = 0;
 #else
             for (k = i + 1; k < j; k++)
-                if (k > i) blocklist->entries2[k].hits = -1;
+                if (k > i)
+                    blocklist->entries2[k].hits = -1;
 #endif
             /* Extend the range */
             blocklist->entries[i].ip_max = ip_max;
@@ -242,55 +248,55 @@ blocklist_trim(blocklist_t *blocklist)
 
 #ifndef LOWMEM
     if (blocklist->count) {
-	blocklist->entries = realloc(blocklist->entries, blocklist->count * sizeof(block_entry_t));
+        blocklist->entries = realloc(blocklist->entries, blocklist->count * sizeof(block_entry_t));
         blocklist->entries2 = realloc(blocklist->entries2, blocklist->count * sizeof(block_entry2_t));
-	CHECK_OOM(blocklist->entries);
-	CHECK_OOM(blocklist->entries2);
+        CHECK_OOM(blocklist->entries);
+        CHECK_OOM(blocklist->entries2);
     } else {
-	free(blocklist->entries);
-	free(blocklist->entries2);
-	blocklist->entries = 0;
-	blocklist->entries2 = 0;
+        free(blocklist->entries);
+        free(blocklist->entries2);
+        blocklist->entries = 0;
+        blocklist->entries2 = 0;
     }
     if (blocklist->subcount) {
-	blocklist->subentries = (block_sub_entry_t *)realloc(blocklist->subentries, blocklist->subcount * sizeof(block_sub_entry_t));
-	CHECK_OOM(blocklist->subentries);
+        blocklist->subentries = (block_sub_entry_t*)realloc(blocklist->subentries, blocklist->subcount * sizeof(block_sub_entry_t));
+        CHECK_OOM(blocklist->subentries);
     } else {
-	free(blocklist->subentries);
-	blocklist->subentries = 0;
+        free(blocklist->subentries);
+        blocklist->subentries = 0;
     }
 #endif
 }
 
 #ifndef LOWMEM
 static int
-compare_hits(const void *p1, const void *p2)
+compare_hits(const void* p1, const void* p2)
 {
-    return (*(block_entry2_t **)p2)->hits - (*(block_entry2_t **)p1)->hits;
+    return (*(block_entry2_t**)p2)->hits - (*(block_entry2_t**)p1)->hits;
 }
 #endif
 
 void
-blocklist_stats(blocklist_t *blocklist)
+blocklist_stats(blocklist_t* blocklist)
 {
     unsigned int i;
     unsigned long total = 0;
 
 #ifndef LOWMEM
-    block_entry2_t **sorted_entries2;
+    block_entry2_t** sorted_entries2;
     unsigned int entry_count = 0;
 
     for (i = 0; i < blocklist->count; i++)
         if (blocklist->entries2[i].hits >= 1)
             entry_count++;
 
-    sorted_entries2 = (block_entry2_t **)malloc(sizeof(block_entry2_t *) * entry_count);
+    sorted_entries2 = (block_entry2_t**)malloc(sizeof(block_entry2_t*) * entry_count);
     CHECK_OOM(sorted_entries2);
     for (i = 0, entry_count = 0; i < blocklist->count; i++) {
         if (blocklist->entries2[i].hits >= 1)
             sorted_entries2[entry_count++] = &blocklist->entries2[i];
     }
-    qsort(sorted_entries2, entry_count, sizeof(block_entry2_t *), compare_hits);
+    qsort(sorted_entries2, entry_count, sizeof(block_entry2_t*), compare_hits);
 #else
     unsigned int entry_count = blocklist->count;
 #endif
@@ -298,11 +304,11 @@ blocklist_stats(blocklist_t *blocklist)
     do_log(LOG_INFO, "Blocker hit statistic:");
     for (i = 0; i < entry_count; i++) {
 #ifndef LOWMEM
-        block_entry2_t *e2 = sorted_entries2[i];
-        block_entry_t *e = &blocklist->entries[e2 - blocklist->entries2];
+        block_entry2_t* e2 = sorted_entries2[i];
+        block_entry_t* e = &blocklist->entries[e2 - blocklist->entries2];
 #else
-        block_entry2_t *e2 = &blocklist->entries2[i];
-        block_entry_t *e = &blocklist->entries[i];
+        block_entry2_t* e2 = &blocklist->entries2[i];
+        block_entry_t* e = &blocklist->entries[i];
 #endif
         if (e2->hits >= 1) {
             uint32_t ip1, ip2;
@@ -314,10 +320,10 @@ blocklist_stats(blocklist_t *blocklist)
 #ifndef LOWMEM
             if (e2->name) {
                 do_log(LOG_INFO, "%s - %s-%s: %d", e2->name,
-                       buf1, buf2, e2->hits);
+                    buf1, buf2, e2->hits);
             } else {
                 unsigned int j, cnt;
-                block_sub_entry_t *s;
+                block_sub_entry_t* s;
                 cnt = 0;
                 for (j = e2->merged_idx; j < blocklist->subcount; j++) {
                     s = &blocklist->subentries[j];
@@ -327,7 +333,7 @@ blocklist_stats(blocklist_t *blocklist)
                 }
                 s = &blocklist->subentries[e2->merged_idx];
                 do_log(LOG_INFO, "%s [+%d] - %s-%s: %d", s->name, cnt - 1,
-                       buf1, buf2, e2->hits);
+                    buf1, buf2, e2->hits);
             }
 #else
             do_log(LOG_INFO, "%s-%s: %d", buf1, buf2, e2->hits);
@@ -341,26 +347,30 @@ blocklist_stats(blocklist_t *blocklist)
 #endif
 }
 
-block_entry_t *
-search_key(blocklist_t *blocklist, const void *key)
+block_entry_t*
+search_key(blocklist_t* blocklist, const void* key)
 {
     block_entry_t* base = blocklist->entries;
     size_t nel = blocklist->count;
 
     while (nel > 0) {
-        block_entry_t *try;
+        block_entry_t* try
+            ;
         int sign;
 
-        try = base + nel / 2;
+        try
+            = base + nel / 2;
         sign = block_key_compare(key, try);
         if (!sign) {
-            return try;
+            return try
+                ;
         } else if (nel == 1) {
             break;
         } else if (sign < 0) {
             nel /= 2;
         } else {
-            base = try;
+            base = try
+                ;
             nel -= nel / 2;
         }
     }
@@ -368,13 +378,13 @@ search_key(blocklist_t *blocklist, const void *key)
 }
 
 #ifndef LOWMEM
-block_entry2_t *
-blocklist_find(blocklist_t *blocklist, uint32_t ip,
-               const char **names, unsigned int max)
+block_entry2_t*
+blocklist_find(blocklist_t* blocklist, uint32_t ip,
+    const char** names, unsigned int max)
 {
     block_entry_t e;
-    block_entry_t *ret;
-    block_entry2_t *ret2;
+    block_entry_t* ret;
+    block_entry2_t* ret2;
     unsigned int i, cnt;
 
     e.ip_min = e.ip_max = ip;
@@ -397,7 +407,7 @@ blocklist_find(blocklist_t *blocklist, uint32_t ip,
     // scan the subentries
     cnt = 0;
     for (i = ret2->merged_idx; i < blocklist->subcount; i++) {
-        block_sub_entry_t * e = &blocklist->subentries[i];
+        block_sub_entry_t* e = &blocklist->subentries[i];
         if (e->ip_min > ret->ip_max)
             break;
         if (cnt >= max)
@@ -415,12 +425,12 @@ out:
     return ret2;
 }
 #else
-block_entry2_t *
-blocklist_find(blocklist_t *blocklist, uint32_t ip,
-               void *dummy1, int dummy2)
+block_entry2_t*
+blocklist_find(blocklist_t* blocklist, uint32_t ip,
+    void* dummy1, int dummy2)
 {
     block_entry_t e;
-    block_entry_t *ret;
+    block_entry_t* ret;
 
     e.ip_min = e.ip_max = ip;
     ret = bsearch(blocklist, &e);
@@ -434,16 +444,16 @@ blocklist_find(blocklist_t *blocklist, uint32_t ip,
 #endif
 
 void
-blocklist_dump(blocklist_t *blocklist)
+blocklist_dump(blocklist_t* blocklist)
 {
     unsigned int i;
 
     for (i = 0; i < blocklist->count; i++) {
         uint32_t ip1, ip2;
         char buf1[INET_ADDRSTRLEN], buf2[INET_ADDRSTRLEN];
-        block_entry_t *e = &blocklist->entries[i];
+        block_entry_t* e = &blocklist->entries[i];
 #ifndef LOWMEM
-        block_entry2_t *e2 = &blocklist->entries2[i];
+        block_entry2_t* e2 = &blocklist->entries2[i];
 #endif
 
         ip1 = htonl(e->ip_min);
@@ -457,8 +467,9 @@ blocklist_dump(blocklist_t *blocklist)
             unsigned int j;
             printf("%d - %s-%s is a composite range:\n", i, buf1, buf2);
             for (j = e2->merged_idx; j < blocklist->subcount; j++) {
-                block_sub_entry_t *s = &blocklist->subentries[j];
-                if (s->ip_min > e->ip_max) break;
+                block_sub_entry_t* s = &blocklist->subentries[j];
+                if (s->ip_min > e->ip_max)
+                    break;
                 ip1 = htonl(s->ip_min);
                 ip2 = htonl(s->ip_max);
                 inet_ntop(AF_INET, &ip1, buf1, sizeof(buf1));

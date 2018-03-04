@@ -27,7 +27,6 @@
 #include "blocklist.h"
 #include "nfblockd.h"
 
-int load_list(blocklist_t *blocklist, const char *filename, const char *charset);
+int load_list(blocklist_t* blocklist, const char* filename, const char* charset);
 
 #endif
-

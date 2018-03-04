@@ -32,9 +32,8 @@
 
 #define CHUNK 1024
 
-typedef struct stream_t
-{
-    FILE *f;
+typedef struct stream_t {
+    FILE* f;
 #ifdef HAVE_ZLIB
     int compressed;
     int eos;
@@ -44,9 +43,8 @@ typedef struct stream_t
 #endif
 } stream_t;
 
-int stream_open(stream_t *stream, const char *filename);
-int stream_close(stream_t *stream);
-char * stream_getline(char *buf, int max, stream_t *stream);
+int stream_open(stream_t* stream, const char* filename);
+int stream_close(stream_t* stream);
+char* stream_getline(char* buf, int max, stream_t* stream);
 
 #endif
-

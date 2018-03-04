@@ -24,14 +24,13 @@
    Boston, MA 02110-1301, USA.
 */
 
-
 #ifndef NFBLOCKD_DBUS_H
 #define NFBLOCKD_DBUS_H
 
-#include <stdbool.h>
-#include <inttypes.h>
-#include <time.h>
 #include <dbus/dbus.h>
+#include <inttypes.h>
+#include <stdbool.h>
+#include <time.h>
 
 #include "blocklist.h"
 #include "nfblockd.h"
@@ -41,15 +40,15 @@
 typedef enum {
     LOG_NF_IN,
     LOG_NF_OUT,
-/*    LOG_NF_FWD,*/
+    /*    LOG_NF_FWD,*/
 } dbus_log_message_t;
 
 typedef int (*nfblock_dbus_init_t)(log_func_t do_log);
 
 typedef int (*nfblock_dbus_send_blocked_t)(log_func_t do_log, time_t curtime,
-                                           dbus_log_message_t signal,
-                                           dbus_bool_t dropped, char *addr,
-                                           const char **ranges,
-                                           uint32_t hits);
+    dbus_log_message_t signal,
+    dbus_bool_t dropped, char* addr,
+    const char** ranges,
+    uint32_t hits);
 
 #endif
