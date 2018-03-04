@@ -31,7 +31,7 @@ PLUGINDIR ?= $(prefix)/lib/nfblock
 
 OBJS=src/nfblockd.o src/stream.o src/blocklist.o src/parser.o
 TEST_OBJS=src/test.o src/stream.o src/blocklist.o src/parser.o
-OPTFLAGS=-Os
+OPTFLAGS=-O3
 CFLAGS=-Wall -DVERSION=\"$(VERSION)\" -DPLUGINDIR=\"$(PLUGINDIR)\"
 LIBS=-lnetfilter_queue -lnfnetlink
 CC=gcc
