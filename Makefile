@@ -34,7 +34,7 @@ TEST_OBJS=src/test.o src/stream.o src/blocklist.o src/parser.o
 OPTFLAGS=-O3
 CFLAGS=-Wall -DVERSION=\"$(VERSION)\" -DPLUGINDIR=\"$(PLUGINDIR)\"
 LIBS=-lnetfilter_queue -lnfnetlink
-CC=gcc
+#CC=gcc
 
 LDFLAGS=-Wl,--as-needed
 
