@@ -97,11 +97,15 @@ blocklist_clear(blocklist_t* blocklist, int start)
 {
     unsigned int i;
 
-    for (i = start; i < blocklist->count; i++)
+    for (i = start; i < blocklist->count; i++) {
 #ifndef LOWMEM
-        if (blocklist->entries2[i].name)
+        if (blocklist->entries2[i].name) {
             free(blocklist->entries2[i].name);
+            blocklist->entries2[i].name = NULL;
+        }
 #endif
+    }
+
     if (start == 0) {
         free(blocklist->entries);
         free(blocklist->entries2);
@@ -115,7 +119,7 @@ blocklist_clear(blocklist_t* blocklist, int start)
                 if (blocklist->subentries[i].name)
                     free(blocklist->subentries[i].name);
             free(blocklist->subentries);
-            blocklist->subentries = 0;
+            blocklist->subentries = NULL;
         }
         blocklist->subcount = 0;
 #endif

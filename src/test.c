@@ -92,6 +92,11 @@ main(int argc, char* argv[])
     fprintf(stderr, "%d entries\n", blocklist.count);
 */
     bitfield = (int64_t*)malloc(0x100000000UL >> 3);
+    if (!bitfield) {
+        perror("main");
+        exit(EXIT_FAILURE);
+    }
+
     fprintf(stderr, "%d entries\n", blocklist.count);
 
     memset(bitfield, 0, 0x100000000 >> 3);
